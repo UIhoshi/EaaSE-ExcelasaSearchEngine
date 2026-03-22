@@ -16,6 +16,7 @@ EaaSE 的含义是：把 Excel 变成一个可以搜索的搜索引擎。
 2. 选择 Excel
 
 这是一个本地运行、只读处理的 Excel 严格搜索工具，适合多文件、多 Sheet、宽表检索场景。
+本项目的协作方式是：Codex 负责编程实现，Gemini 负责 review 与规划。
 
 ### 产品定位
 - 本地运行，不依赖远程服务
@@ -80,6 +81,7 @@ With only two steps, you can turn your Excel files into a searchable search engi
 2. Choose Excel
 
 This is a local, read-only Excel strict-search tool designed for multi-file, multi-sheet, and wide-table lookup workflows.
+The collaboration model for this project is: Codex handles implementation, while Gemini handles review and planning.
 
 ### Positioning
 - Runs locally without relying on remote services
@@ -144,6 +146,7 @@ npm run build
 2. Excel を選ぶ
 
 これはローカル実行・読み取り専用の Excel 厳密検索ツールで、複数ファイル・複数シート・横に広い表の検索に向いています。
+このプロジェクトの協力体制は、Codex が実装を担当し、Gemini が review と planning を担当する形です。
 
 ### 製品の位置づけ
 - リモートサービスに依存せずローカルで動作
