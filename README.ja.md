@@ -11,6 +11,7 @@
 ![UI](https://img.shields.io/badge/ui-zh%20%7C%20en%20%7C%20ja-b91c1c?style=for-the-badge)
 ![Search](https://img.shields.io/badge/search-strict%20substring-1d4ed8?style=for-the-badge)
 ![Runtime](https://img.shields.io/badge/runtime-local--first-7c3aed?style=for-the-badge)
+![Built With](https://img.shields.io/badge/built%20with-Codex%20%2B%20Gemini-f59e0b?style=for-the-badge)
 
 [English](./README.md) | [中文](./README.zh-CN.md) | [日本語](./README.ja.md)
 
@@ -28,6 +29,10 @@ EaaSE は、ローカル専用かつ読み取り専用で動作する Excel 検�
 このプロジェクトの役割分担:
 - Codex が実装とエンジニアリング変更を担当
 - Gemini がレビューと計画を担当
+
+この名前と分担は公開資料でも明示的に残す:
+- Codex は実装とエンジニアリングの担当
+- Gemini は計画とレビューの担当
 
 ## クイック概要
 

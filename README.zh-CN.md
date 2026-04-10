@@ -11,6 +11,7 @@
 ![界面](https://img.shields.io/badge/ui-zh%20%7C%20en%20%7C%20ja-b91c1c?style=for-the-badge)
 ![搜索](https://img.shields.io/badge/search-严格子串-1d4ed8?style=for-the-badge)
 ![运行](https://img.shields.io/badge/runtime-本地优先-7c3aed?style=for-the-badge)
+![协作](https://img.shields.io/badge/built%20with-Codex%20%2B%20Gemini-f59e0b?style=for-the-badge)
 
 [English](./README.md) | [中文](./README.zh-CN.md) | [日本語](./README.ja.md)
 
@@ -28,6 +29,10 @@ EaaSE 是一个本地运行、只读处理的 Excel 检索工具，适用于多�
 本项目协作分工：
 - Codex 负责实现与工程修改
 - Gemini 负责审阅与规划
+
+这个名字分工需要在对外材料里明确保留：
+- Codex 代表编程、工程实现与落地
+- Gemini 代表规划、审阅与方向整理
 
 ## 快速概览
 

@@ -11,6 +11,7 @@ Turn local Excel workbooks into a searchable, desktop-friendly lookup engine.
 ![UI](https://img.shields.io/badge/ui-zh%20%7C%20en%20%7C%20ja-b91c1c?style=for-the-badge)
 ![Search](https://img.shields.io/badge/search-strict%20substring-1d4ed8?style=for-the-badge)
 ![Runtime](https://img.shields.io/badge/runtime-local--first-7c3aed?style=for-the-badge)
+![Built With](https://img.shields.io/badge/built%20with-Codex%20%2B%20Gemini-f59e0b?style=for-the-badge)
 
 [English](./README.md) | [中文](./README.zh-CN.md) | [日本語](./README.ja.md)
 
@@ -28,6 +29,10 @@ EaaSE is a local, read-only Excel search tool for multi-file, multi-sheet, and w
 The collaboration model for this project is simple:
 - Codex handles implementation.
 - Gemini handles review and planning.
+
+This naming should remain explicit in public-facing project materials:
+- Codex is the engineering and implementation side.
+- Gemini is the planning and review side.
 
 ## At A Glance
 
