@@ -10,33 +10,8 @@ const outputRoot =
   process.argv[2] && process.argv[2].trim()
     ? path.resolve(projectRoot, process.argv[2])
     : path.join(projectRoot, "artifacts", "windows-portable-exe", "prereqs", "windows");
-const releaseIndexUrl = "https://nodejs.org/dist/index.json";
-
-const getLatestWindowsInstaller = async () => {
-  const response = await fetch(releaseIndexUrl);
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch Node.js release index: ${response.status} ${response.statusText}`);
-  }
-
-  const releases = await response.json();
-  const latestLts = releases.find((release) => Boolean(release.lts) && release.files.includes("win-x64-msi"));
-
-  if (!latestLts) {
-    throw new Error("No latest Node.js LTS Windows x64 MSI release was found.");
-  }
-
-  const version = latestLts.version.replace(/^v/, "");
-  const fileName = `node-v${version}-x64.msi`;
-
-  return {
-    version,
-    ltsName: latestLts.lts,
-    fileName,
-    homepage: "https://nodejs.org/en/download/",
-    downloadUrl: `https://nodejs.org/dist/v${version}/${fileName}`,
-  };
-};
+const downloadUrl = "https://go.microsoft.com/fwlink/p/?linkid=2124703";
+const fileName = "MicrosoftEdgeWebView2Setup.exe";
 
 const downloadToFile = async (url, destinationPath) => {
   const response = await fetch(url);
@@ -56,17 +31,15 @@ const downloadToFile = async (url, destinationPath) => {
 };
 
 const main = async () => {
-  const installer = await getLatestWindowsInstaller();
-
   await fs.mkdir(outputRoot, { recursive: true });
-  await downloadToFile(installer.downloadUrl, path.join(outputRoot, installer.fileName));
+  await downloadToFile(downloadUrl, path.join(outputRoot, fileName));
   await fs.writeFile(
-    path.join(outputRoot, "node-installer.json"),
-    `${JSON.stringify({ ...installer, downloadedAt: new Date().toISOString() }, null, 2)}\n`,
+    path.join(outputRoot, "webview2-installer.json"),
+    `${JSON.stringify({ fileName, downloadUrl, downloadedAt: new Date().toISOString() }, null, 2)}\n`,
     "utf8",
   );
 
-  process.stdout.write(`Downloaded official Node.js installer: ${installer.fileName}\n`);
+  process.stdout.write(`Downloaded official WebView2 bootstrapper: ${fileName}\n`);
 };
 
 main().catch((error) => {

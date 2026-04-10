@@ -28,13 +28,20 @@ export type CachedWorkbook = {
   fileSize: number;
   lastModified: number;
   importedAt: number;
+  absolutePath: string;
+  headerDepth: number;
+  isFavorite: boolean;
+  missing: boolean;
   sheets: SheetRecord[];
   uniqueValues: string[];
+  error?: string;
 };
 
 export type SearchHit = {
   fingerprint: string;
   fileName: string;
+  absolutePath: string;
+  missing: boolean;
   sheetId: string;
   sheetName: string;
   rows: RowRecord[];
@@ -49,3 +56,28 @@ export type ToastState = {
   x: number;
   y: number;
 };
+
+export type ConfigWorkbookRecord = {
+  fingerprint: string;
+  absolutePath: string;
+  headerDepth: number;
+  isFavorite: boolean;
+  importedAt: number;
+};
+
+export type PersistedWorkbook = CachedWorkbook | ConfigWorkbookRecord;
+
+export type ProjectConfig = {
+  cacheVersion?: number;
+  fileName: string;
+  configName: string;
+  lastUpdated: string;
+  workbooks: PersistedWorkbook[];
+  preferences: {
+    layout: "standard" | "expanded";
+    theme: "light";
+    language?: AppLanguage;
+  };
+};
+
+export type AppLanguage = "zh-CN" | "en-US" | "ja-JP";

@@ -14,6 +14,8 @@ export const searchWorkbooks = (workbooks: CachedWorkbook[], query: string): Sea
         hits.push({
           fingerprint: workbook.fingerprint,
           fileName: workbook.fileName,
+          absolutePath: workbook.absolutePath,
+          missing: workbook.missing,
           sheetId: sheet.id,
           sheetName: sheet.sheetName,
           rows,

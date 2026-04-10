@@ -1,185 +1,32 @@
-import { type CSSProperties, type ChangeEvent, type MouseEvent, useEffect, useRef, useState } from "react";
-import { buildFingerprint, parseExcelFile } from "./lib/excel";
-import { deleteCachedWorkbook, getAllCachedWorkbooks, saveCachedWorkbook } from "./lib/indexedDb";
-import { buildCandidates, searchWorkbooks } from "./lib/search";
-import type { CachedWorkbook, CellRecord, RowRecord, SearchHit, ToastState } from "./types";
+import {
+  type CSSProperties,
+  type MouseEvent,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useWorkbookArchive } from "./hooks/useWorkbookArchive";
+import { useSearchWorker } from "./hooks/useSearchWorker";
+import {
+  openWorkbookInExplorer,
+  pickFiles,
+  pickFolder,
+  sendUiTelemetry,
+} from "./lib/api";
+import { parseExcelFile } from "./lib/excel";
+import { getAllCachedWorkbooks } from "./lib/indexedDb";
+import { getDictionary, resolveInitialLanguage } from "./lib/i18n";
+import type {
+  AppLanguage,
+  CachedWorkbook,
+  CellRecord,
+  RowRecord,
+  ToastState,
+} from "./types";
 
-const MAX_FILES = 20;
-const LANGUAGE_STORAGE_KEY = "excel-strict-searcher-language";
-
-const messages = {
-  zh: {
-    appName: "Excel Strict Searcher",
-    activatedTitle: "Excel Strict Searcher - 已激活",
-    closeWarning: "关闭页面会同时结束本地服务。",
-    maxFilesAlert: `最多同时保留 ${MAX_FILES} 个文件。`,
-    duplicateFilesAlert: "这些文件已经导入过了。",
-    removeWorkbook: (fileName: string) => `确认移除 ${fileName} 吗？这只会删除工具内缓存，不会修改原文件。`,
-    copyRow: (rowNumber: number) => `已复制第 ${rowNumber} 行`,
-    copyHeaderCell: "已复制表头单元格",
-    copyCell: "已复制单元格",
-    sheetJumpLabel: "命中 Sheet",
-    sheetJumpTarget: (sheetName: string, rowCount: number) => `${sheetName} · ${rowCount} 行`,
-    duplicateLaunchTitle: "页面已在其他窗口打开",
-    duplicateLaunchCopy: "已经尝试激活现有页面。请回到已打开的标签页继续使用，并关闭当前这个重复页面。",
-    heroTitle: "本地 Excel 严格搜索",
-    heroCopy: "只做严格子串匹配，只读检索，多文件多 Sheet 并行展示，缓存留在本地。",
-    searchPlaceholder: "输入连续字符串，例如 aabb",
-    clear: "清空",
-    search: "搜索",
-    importing: "导入中...",
-    importExcel: "导入 Excel",
-    loadingCache: "加载缓存中...",
-    loadedFiles: (count: number) => `已载入 ${count} / ${MAX_FILES} 个文件`,
-    currentLayout: "当前布局",
-    standard: "标准",
-    expanded: "扩展",
-    currentColumns: "列显示",
-    allColumns: "全部列",
-    labeledColumns: "仅标签列",
-    currentKeyword: "当前关键词",
-    notSearched: "未搜索",
-    fileManagement: "文件管理",
-    fileCount: (count: number) => `${count} 个文件`,
-    noCachedFiles: "还没有缓存文件，先导入 Excel。",
-    delete: "删除",
-    searchStatus: "检索状态",
-    waitingSearch: "等待搜索",
-    keywordLabel: (query: string) => `关键词: ${query}`,
-    searchSummary: (count: number) => `共命中 ${count} 行。`,
-    searchHint: "输入候选词后按 Enter 或点击搜索。",
-    layoutMode: "布局模式",
-    columnDisplay: "列显示",
-    searchStartHint: "输入关键字后开始严格检索，结果会按文件和 Sheet 分组展示。",
-    searchNoResult: "未找到结果，请调整搜索词后重试。",
-    hitRows: (count: number) => `${count} 行命中`,
-    headerOnly: "仅显示表头行",
-    headerDepth: "表头层数",
-    headerLabelColumns: (rowNumber: number) => `第${rowNumber}行标签列`,
-    all: "全部",
-    rowNumber: "行号",
-    noResult: "未找到结果",
-    backToTop: "回到顶部",
-    language: "语言",
-    loading: "加载中",
-  },
-  en: {
-    appName: "Excel Strict Searcher",
-    activatedTitle: "Excel Strict Searcher - Activated",
-    closeWarning: "Closing this page will also stop the local service.",
-    maxFilesAlert: `You can keep up to ${MAX_FILES} files at the same time.`,
-    duplicateFilesAlert: "These files have already been imported.",
-    removeWorkbook: (fileName: string) =>
-      `Remove ${fileName}? This only clears the tool cache and will not modify the source file.`,
-    copyRow: (rowNumber: number) => `Copied row ${rowNumber}`,
-    copyHeaderCell: "Copied header cell",
-    copyCell: "Copied cell",
-    sheetJumpLabel: "Matched Sheets",
-    sheetJumpTarget: (sheetName: string, rowCount: number) => `${sheetName} · ${rowCount} rows`,
-    duplicateLaunchTitle: "This page is already open in another window",
-    duplicateLaunchCopy:
-      "The existing page has been activated. Return to the already opened tab and close this duplicate page.",
-    heroTitle: "Local Excel Strict Search",
-    heroCopy: "Strict substring matching only, read-only search, multi-file multi-sheet view, cache kept locally.",
-    searchPlaceholder: "Enter a continuous string, for example aabb",
-    clear: "Clear",
-    search: "Search",
-    importing: "Importing...",
-    importExcel: "Import Excel",
-    loadingCache: "Loading cache...",
-    loadedFiles: (count: number) => `Loaded ${count} / ${MAX_FILES} files`,
-    currentLayout: "Layout",
-    standard: "Standard",
-    expanded: "Expanded",
-    currentColumns: "Columns",
-    allColumns: "All Columns",
-    labeledColumns: "Labeled Only",
-    currentKeyword: "Keyword",
-    notSearched: "Not searched",
-    fileManagement: "Files",
-    fileCount: (count: number) => `${count} files`,
-    noCachedFiles: "No cached files yet. Import Excel files first.",
-    delete: "Delete",
-    searchStatus: "Search Status",
-    waitingSearch: "Waiting",
-    keywordLabel: (query: string) => `Keyword: ${query}`,
-    searchSummary: (count: number) => `${count} matched rows.`,
-    searchHint: "Enter a candidate and press Enter or click Search.",
-    layoutMode: "Layout Mode",
-    columnDisplay: "Column Display",
-    searchStartHint: "Enter a keyword to start strict search. Results are grouped by file and sheet.",
-    searchNoResult: "No results found. Adjust the keyword and try again.",
-    hitRows: (count: number) => `${count} matched rows`,
-    headerOnly: "Header rows only",
-    headerDepth: "Header Depth",
-    headerLabelColumns: (rowNumber: number) => `Row ${rowNumber} label columns`,
-    all: "All",
-    rowNumber: "Row",
-    noResult: "No results found",
-    backToTop: "Back to Top",
-    language: "Language",
-    loading: "Loading",
-  },
-  ja: {
-    appName: "Excel Strict Searcher",
-    activatedTitle: "Excel Strict Searcher - アクティブ化済み",
-    closeWarning: "このページを閉じるとローカルサービスも終了します。",
-    maxFilesAlert: `同時に保持できるファイルは最大 ${MAX_FILES} 件です。`,
-    duplicateFilesAlert: "これらのファイルはすでに取り込み済みです。",
-    removeWorkbook: (fileName: string) =>
-      `${fileName} を削除しますか？ ツール内キャッシュのみ削除し、元ファイルは変更しません。`,
-    copyRow: (rowNumber: number) => `${rowNumber} 行目をコピーしました`,
-    copyHeaderCell: "ヘッダーセルをコピーしました",
-    copyCell: "セルをコピーしました",
-    sheetJumpLabel: "一致したシート",
-    sheetJumpTarget: (sheetName: string, rowCount: number) => `${sheetName} · ${rowCount} 行`,
-    duplicateLaunchTitle: "このページは別のウィンドウで開かれています",
-    duplicateLaunchCopy:
-      "既存のページをアクティブにしました。開いているタブに戻り、この重複ページを閉じてください。",
-    heroTitle: "ローカル Excel 厳密検索",
-    heroCopy: "厳密な部分一致のみ、読み取り専用検索、複数ファイル・複数シートを同時表示、キャッシュはローカル保持。",
-    searchPlaceholder: "連続した文字列を入力してください。例: aabb",
-    clear: "クリア",
-    search: "検索",
-    importing: "取り込み中...",
-    importExcel: "Excel を取り込む",
-    loadingCache: "キャッシュを読み込み中...",
-    loadedFiles: (count: number) => `${count} / ${MAX_FILES} 件のファイルを読み込み済み`,
-    currentLayout: "レイアウト",
-    standard: "標準",
-    expanded: "拡張",
-    currentColumns: "列表示",
-    allColumns: "全列",
-    labeledColumns: "ラベル列のみ",
-    currentKeyword: "キーワード",
-    notSearched: "未検索",
-    fileManagement: "ファイル管理",
-    fileCount: (count: number) => `${count} 件のファイル`,
-    noCachedFiles: "キャッシュされたファイルはありません。先に Excel を取り込んでください。",
-    delete: "削除",
-    searchStatus: "検索状態",
-    waitingSearch: "検索待ち",
-    keywordLabel: (query: string) => `キーワード: ${query}`,
-    searchSummary: (count: number) => `一致した行は ${count} 件です。`,
-    searchHint: "候補語を入力して Enter を押すか、検索をクリックしてください。",
-    layoutMode: "レイアウトモード",
-    columnDisplay: "列表示",
-    searchStartHint: "キーワードを入力すると厳密検索を開始します。結果はファイルとシートごとに表示されます。",
-    searchNoResult: "結果が見つかりません。検索語を調整して再試行してください。",
-    hitRows: (count: number) => `${count} 行一致`,
-    headerOnly: "ヘッダー行のみ表示",
-    headerDepth: "ヘッダー段数",
-    headerLabelColumns: (rowNumber: number) => `${rowNumber} 行目のラベル列`,
-    all: "すべて",
-    rowNumber: "行",
-    noResult: "結果が見つかりません",
-    backToTop: "上に戻る",
-    language: "言語",
-    loading: "読み込み中",
-  },
-} as const;
-
-type Language = keyof typeof messages;
+const MAX_FILES = 1000;
 
 const toExcelColumnLabel = (index: number): string => {
   let current = index + 1;
@@ -207,6 +54,16 @@ type HeaderFilterOption = {
   columns: number[];
 };
 
+type FileTreeNode = {
+  folders: Map<string, FileTreeNode>;
+  files: CachedWorkbook[];
+};
+
+const collectNodeWorkbooks = (node: FileTreeNode): CachedWorkbook[] => [
+  ...node.files,
+  ...Array.from(node.folders.values()).flatMap((childNode) => collectNodeWorkbooks(childNode)),
+];
+
 const buildVisibleColumnSet = (headerRows: RowRecord[], columnCount: number): Set<number> => {
   const visibleColumns = new Set<number>();
 
@@ -227,8 +84,60 @@ const buildVisibleColumnSet = (headerRows: RowRecord[], columnCount: number): Se
 };
 
 const formatFileMeta = (workbook: CachedWorkbook): string => {
+  if (workbook.missing) {
+    return workbook.absolutePath;
+  }
+
   const sizeInMb = (workbook.fileSize / 1024 / 1024).toFixed(2);
-  return `${sizeInMb} MB`;
+  return `${sizeInMb} MB · ${workbook.absolutePath}`;
+};
+
+const getWorkbookFolderLabel = (workbook: CachedWorkbook): string => {
+  if (workbook.absolutePath === workbook.fileName) {
+    return workbook.absolutePath;
+  }
+
+  const normalized = workbook.absolutePath.replace(/\\/g, "/");
+  const lastSlashIndex = normalized.lastIndexOf("/");
+
+  if (lastSlashIndex <= 0) {
+    return workbook.absolutePath;
+  }
+
+  return workbook.absolutePath.slice(0, lastSlashIndex);
+};
+
+const getWorkbookPathSegments = (workbook: CachedWorkbook): string[] =>
+  workbook.absolutePath
+    .replace(/\\/g, "/")
+    .split("/")
+    .filter(Boolean);
+
+const createFileTreeNode = (): FileTreeNode => ({
+  folders: new Map(),
+  files: [],
+});
+
+const buildFileTree = (workbooks: CachedWorkbook[]): FileTreeNode => {
+  const root = createFileTreeNode();
+
+  for (const workbook of workbooks) {
+    const segments = getWorkbookPathSegments(workbook);
+    const folderSegments = segments.slice(0, Math.max(segments.length - 1, 0));
+    let current = root;
+
+    for (const segment of folderSegments) {
+      if (!current.folders.has(segment)) {
+        current.folders.set(segment, createFileTreeNode());
+      }
+
+      current = current.folders.get(segment)!;
+    }
+
+    current.files.push(workbook);
+  }
+
+  return root;
 };
 
 const highlightText = (value: string, query: string) => {
@@ -311,11 +220,287 @@ const buildSectionRowCells = (
   return sectionCellMap;
 };
 
+type VirtualSheetListProps<T> = {
+  items: T[];
+  itemKey: (item: T) => string;
+  jumpToKey?: string | null;
+  renderItem: (item: T) => React.ReactNode;
+};
+
+function VirtualSheetList<T>({ items, itemKey, jumpToKey, renderItem }: VirtualSheetListProps<T>) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const sizeMapRef = useRef<Record<string, number>>({});
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(720);
+  const [version, setVersion] = useState(0);
+
+  useEffect(() => {
+    if (!containerRef.current) {
+      return undefined;
+    }
+
+    const updateHeight = () => {
+      setViewportHeight(containerRef.current?.clientHeight ?? 720);
+    };
+
+    updateHeight();
+    const observer = new ResizeObserver(() => updateHeight());
+    observer.observe(containerRef.current);
+
+    return () => observer.disconnect();
+  }, []);
+
+  const offsets = useMemo(() => {
+    let total = 0;
+    return items.map((item) => {
+      const key = itemKey(item);
+      const height = sizeMapRef.current[key] ?? 560;
+      const offset = total;
+      total += height + 20;
+      return { key, offset, height };
+    });
+  }, [items, itemKey, version]);
+
+  const totalHeight = offsets.length === 0 ? 0 : offsets[offsets.length - 1].offset + offsets[offsets.length - 1].height;
+  const overscan = 900;
+  const visible = offsets.filter(
+    ({ offset, height }) => offset + height >= scrollTop - overscan && offset <= scrollTop + viewportHeight + overscan,
+  );
+
+  useEffect(() => {
+    if (!jumpToKey || !containerRef.current) {
+      return;
+    }
+
+    const target = offsets.find((entry) => entry.key === jumpToKey);
+    if (!target) {
+      return;
+    }
+
+    containerRef.current.scrollTo({
+      top: Math.max(target.offset - 16, 0),
+      behavior: "smooth",
+    });
+  }, [jumpToKey, offsets]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="virtual-results-viewport"
+      onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+    >
+      <div className="virtual-results-spacer" style={{ height: totalHeight }}>
+        {visible.map(({ key, offset }) => {
+          const index = offsets.findIndex((entry) => entry.key === key);
+          const item = items[index];
+
+          return (
+            <VirtualSheetMeasure
+              key={key}
+              offset={offset}
+              onMeasure={(height) => {
+                if (sizeMapRef.current[key] !== height) {
+                  sizeMapRef.current[key] = height;
+                  setVersion((current) => current + 1);
+                }
+              }}
+            >
+              {renderItem(item)}
+            </VirtualSheetMeasure>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function VirtualSheetMeasure({
+  children,
+  offset,
+  onMeasure,
+}: {
+  children: React.ReactNode;
+  offset: number;
+  onMeasure: (height: number) => void;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!ref.current) {
+      return undefined;
+    }
+
+    const report = () => {
+      if (ref.current) {
+        onMeasure(ref.current.getBoundingClientRect().height);
+      }
+    };
+
+    report();
+    const observer = new ResizeObserver(() => report());
+    observer.observe(ref.current);
+
+    return () => observer.disconnect();
+  }, [onMeasure]);
+
+  return (
+    <div ref={ref} className="virtual-results-item" style={{ transform: `translateY(${offset}px)` }}>
+      {children}
+    </div>
+  );
+}
+
+function FileTreeView({
+  node,
+  depth,
+  onOpenLocation,
+  onRemove,
+  onRemoveFolder,
+  openLabel,
+  openUnavailableLabel,
+  removeLabel,
+  missingLabel,
+  collapseFolderLabel,
+  expandFolderLabel,
+}: {
+  node: FileTreeNode;
+  depth: number;
+  onOpenLocation: (absolutePath: string) => void;
+  onRemove: (workbook: CachedWorkbook) => void;
+  onRemoveFolder: (folderName: string, node: FileTreeNode) => void;
+  openLabel: string;
+  openUnavailableLabel: string;
+  removeLabel: string;
+  missingLabel: string;
+  collapseFolderLabel: string;
+  expandFolderLabel: string;
+}) {
+  const folders = Array.from(node.folders.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  const files = [...node.files].sort((a, b) => a.fileName.localeCompare(b.fileName));
+
+  return (
+    <div className="file-tree-children">
+      {folders.map(([folderName, childNode]) => (
+        <FileTreeBranch
+          key={`${depth}-${folderName}`}
+          folderName={folderName}
+          childNode={childNode}
+          depth={depth}
+          onOpenLocation={onOpenLocation}
+          onRemove={onRemove}
+          onRemoveFolder={onRemoveFolder}
+          openLabel={openLabel}
+          openUnavailableLabel={openUnavailableLabel}
+          removeLabel={removeLabel}
+          missingLabel={missingLabel}
+          collapseFolderLabel={collapseFolderLabel}
+          expandFolderLabel={expandFolderLabel}
+        />
+      ))}
+      {files.map((workbook) => (
+        <div
+          key={workbook.fingerprint}
+          className={`file-tree-leaf${workbook.missing ? " file-item-missing" : ""}`}
+          style={{ paddingLeft: `${depth * 16}px` }}
+        >
+          <div className="file-tree-leaf-main">
+            <div className="file-tree-node">
+              <strong className="file-node-name" title={workbook.fileName}>
+                {workbook.fileName}
+              </strong>
+            </div>
+            <div className="file-item-actions">
+              <button
+                type="button"
+                className="ghost-button compact-button"
+                onClick={() => onOpenLocation(workbook.absolutePath)}
+                disabled={workbook.absolutePath === workbook.fileName}
+                title={workbook.absolutePath === workbook.fileName ? openUnavailableLabel : workbook.absolutePath}
+              >
+                {workbook.absolutePath === workbook.fileName ? openUnavailableLabel : openLabel}
+              </button>
+              {workbook.missing ? <span className="file-status-badge is-missing">{missingLabel}</span> : null}
+              <button type="button" className="danger-link" onClick={() => onRemove(workbook)}>
+                {removeLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FileTreeBranch({
+  folderName,
+  childNode,
+  depth,
+  onOpenLocation,
+  onRemove,
+  onRemoveFolder,
+  openLabel,
+  openUnavailableLabel,
+  removeLabel,
+  missingLabel,
+  collapseFolderLabel,
+  expandFolderLabel,
+}: {
+  folderName: string;
+  childNode: FileTreeNode;
+  depth: number;
+  onOpenLocation: (absolutePath: string) => void;
+  onRemove: (workbook: CachedWorkbook) => void;
+  onRemoveFolder: (folderName: string, node: FileTreeNode) => void;
+  openLabel: string;
+  openUnavailableLabel: string;
+  removeLabel: string;
+  missingLabel: string;
+  collapseFolderLabel: string;
+  expandFolderLabel: string;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <div className="file-tree-branch">
+      <div className="file-tree-folder" style={{ paddingLeft: `${depth * 16}px` }} title={folderName}>
+        <button
+          type="button"
+          className="tree-toggle-button"
+          onClick={() => setCollapsed((current) => !current)}
+          title={collapsed ? expandFolderLabel : collapseFolderLabel}
+          aria-label={collapsed ? expandFolderLabel : collapseFolderLabel}
+        >
+          {collapsed ? "+" : "-"}
+        </button>
+        <span className="file-tree-folder-name">{folderName}</span>
+        <div className="file-item-actions">
+          <button type="button" className="danger-link" onClick={() => onRemoveFolder(folderName, childNode)}>
+            {removeLabel}
+          </button>
+        </div>
+      </div>
+      {!collapsed ? (
+        <FileTreeView
+          node={childNode}
+          depth={depth + 1}
+          onOpenLocation={onOpenLocation}
+          onRemove={onRemove}
+          onRemoveFolder={onRemoveFolder}
+          openLabel={openLabel}
+          openUnavailableLabel={openUnavailableLabel}
+          removeLabel={removeLabel}
+          missingLabel={missingLabel}
+          collapseFolderLabel={collapseFolderLabel}
+          expandFolderLabel={expandFolderLabel}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 export default function App() {
-  const [language, setLanguage] = useState<Language>(() => {
-    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    return stored === "en" || stored === "ja" || stored === "zh" ? stored : "zh";
-  });
+  const [language, setLanguage] = useState<AppLanguage>(resolveInitialLanguage());
+  const t = getDictionary(language);
   const [workbooks, setWorkbooks] = useState<CachedWorkbook[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
@@ -323,32 +508,47 @@ export default function App() {
   const [headerColumnFilterMap, setHeaderColumnFilterMap] = useState<Record<string, Record<number, string[]>>>({});
   const [layoutMode, setLayoutMode] = useState<"standard" | "expanded">("standard");
   const [columnMode, setColumnMode] = useState<"all" | "labeled">("all");
-  const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [duplicateLaunch, setDuplicateLaunch] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [fileFilter, setFileFilter] = useState("");
+  const [jumpToSheetId, setJumpToSheetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const resultsRef = useRef<HTMLElement | null>(null);
   const [syncedHeaderColumns, setSyncedHeaderColumns] = useState<{ sidebar: number; results: number } | null>(null);
-  const t = messages[language];
-
-  useEffect(() => {
-    void (async () => {
-      const cached = await getAllCachedWorkbooks();
-      cached.sort((a, b) => b.importedAt - a.importedAt);
-      setWorkbooks(cached);
-      setLoading(false);
-    })();
-  }, []);
+  const deferredInputValue = useDeferredValue(inputValue);
+  const deferredFileFilter = useDeferredValue(fileFilter);
+  const searchStartedAtRef = useRef<number | null>(null);
+  const searchQueryRef = useRef("");
+  const { activeArchive, handleLoadConfig, handleSaveConfig, loading } = useWorkbookArchive({
+    language,
+    layoutMode,
+    setLanguage,
+    setLayoutMode,
+    workbooks,
+    setWorkbooks,
+    resetHeaderState: () => {
+      setHeaderDepthMap({});
+      setHeaderColumnFilterMap({});
+    },
+    setToast,
+    t: {
+      configLoaded: t.configLoaded,
+      configSaved: t.configSaved,
+      configSaveFailed: t.configSaveFailed,
+      configLoadFailed: t.configLoadFailed,
+    },
+  });
 
   useEffect(() => {
     if (!toast) {
       return undefined;
     }
 
-    const timeoutId = window.setTimeout(() => setToast(null), 1400);
+    const timeoutId = window.setTimeout(() => setToast(null), 1600);
     return () => window.clearTimeout(timeoutId);
   }, [toast]);
 
@@ -408,9 +608,42 @@ export default function App() {
   }, [layoutMode, submittedQuery, workbooks.length]);
 
   useEffect(() => {
-    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
-    document.documentElement.lang = language;
-  }, [language]);
+    if (loading) {
+      return;
+    }
+
+    const memory = "memory" in performance
+      ? {
+          jsHeapSizeLimitMb: Number((((performance as Performance & { memory: { jsHeapSizeLimit: number } }).memory.jsHeapSizeLimit) / 1024 / 1024).toFixed(2)),
+          totalJsHeapSizeMb: Number((((performance as Performance & { memory: { totalJSHeapSize: number } }).memory.totalJSHeapSize) / 1024 / 1024).toFixed(2)),
+          usedJsHeapSizeMb: Number((((performance as Performance & { memory: { usedJSHeapSize: number } }).memory.usedJSHeapSize) / 1024 / 1024).toFixed(2)),
+        }
+      : null;
+
+    void sendUiTelemetry("ui_session_ready", {
+      language,
+      layoutMode,
+      workbookCount: workbooks.length,
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        devicePixelRatio: window.devicePixelRatio,
+      },
+      memory,
+    });
+  }, [language, layoutMode, loading, workbooks.length]);
+
+  const filteredWorkbooks = useMemo(() => {
+    const keyword = deferredFileFilter.trim().toLowerCase();
+    if (!keyword) {
+      return workbooks;
+    }
+
+    return workbooks.filter((workbook) =>
+      [workbook.fileName, workbook.absolutePath].some((field) => field.toLowerCase().includes(keyword)),
+    );
+  }, [deferredFileFilter, workbooks]);
+  const { candidates, searchHits } = useSearchWorker(filteredWorkbooks, deferredInputValue, submittedQuery);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -486,7 +719,7 @@ export default function App() {
       }
 
       window.focus();
-      document.title = t.activatedTitle;
+      document.title = `${t.appTitle} - Active`;
       window.setTimeout(() => {
         document.title = originalTitle;
       }, 1600);
@@ -500,7 +733,7 @@ export default function App() {
       }
 
       event.preventDefault();
-      event.returnValue = t.closeWarning;
+      event.returnValue = "Closing the page will stop the local service.";
       sendClientSignal("/__client/close", true);
     };
 
@@ -517,37 +750,40 @@ export default function App() {
         localStorage.removeItem(`${heartbeatPrefix}${clientId}`);
       }
     };
-  }, [t.activatedTitle, t.closeWarning]);
-
-  const candidates = buildCandidates(workbooks, inputValue);
-  const searchHits: SearchHit[] = searchWorkbooks(workbooks, submittedQuery);
-
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
+  }, [t.appTitle]);
 
   const handleSubmit = (query: string) => {
-    setSubmittedQuery(query.trim());
+    const trimmed = query.trim();
+    searchStartedAtRef.current = trimmed ? performance.now() : null;
+    searchQueryRef.current = trimmed;
+    setSubmittedQuery(trimmed);
   };
 
-  const handleFilesSelected = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = "";
+  const mergeImportedWorkbooks = (nextWorkbooks: CachedWorkbook[]) => {
+    setWorkbooks((current) => [...nextWorkbooks, ...current].sort((a, b) => b.importedAt - a.importedAt));
+  };
 
+  const dedupeImportedWorkbooks = (incoming: CachedWorkbook[]) => {
+    const knownFingerprints = new Set(workbooks.map((item) => item.fingerprint));
+    return incoming.filter((workbook) => !knownFingerprints.has(workbook.fingerprint));
+  };
+
+  const handleBrowserFilesSelected = async (fileList: FileList | null) => {
+    const files = Array.from(fileList ?? []);
     if (!files.length) {
       return;
     }
 
     const knownFingerprints = new Set(workbooks.map((item) => item.fingerprint));
-    const freshFiles = files.filter((file) => !knownFingerprints.has(buildFingerprint(file)));
+    const freshFiles = files.filter((file) => !knownFingerprints.has(`${file.name}__${file.size}__${file.lastModified}`));
 
     if (workbooks.length + freshFiles.length > MAX_FILES) {
-      window.alert(t.maxFilesAlert);
+      window.alert(t.maxFilesReached(MAX_FILES));
       return;
     }
 
     if (!freshFiles.length) {
-      window.alert(t.duplicateFilesAlert);
+      window.alert(t.duplicateFiles);
       return;
     }
 
@@ -555,21 +791,155 @@ export default function App() {
 
     try {
       const parsedWorkbooks = await Promise.all(freshFiles.map((file) => parseExcelFile(file)));
-      await Promise.all(parsedWorkbooks.map((workbook) => saveCachedWorkbook(workbook)));
-      setWorkbooks((current) => [...parsedWorkbooks, ...current].sort((a, b) => b.importedAt - a.importedAt));
+      mergeImportedWorkbooks(parsedWorkbooks);
+    } catch {
+      window.alert(t.importFailed);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleBrowserFolderSelected = async (fileList: FileList | null) => {
+    const files = Array.from(fileList ?? []);
+    if (!files.length) {
+      return;
+    }
+
+    setImporting(true);
+
+    try {
+      const parsedWorkbooks = await Promise.all(
+        files
+          .filter((file) => /\.(xls|xlsx|xlsm|csv)$/i.test(file.name))
+          .map((file) =>
+            parseExcelFile(
+              file,
+              ((file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name).replace(/\//g, "\\"),
+            ),
+          ),
+      );
+      const freshWorkbooks = dedupeImportedWorkbooks(parsedWorkbooks);
+
+      if (workbooks.length + freshWorkbooks.length > MAX_FILES) {
+        window.alert(t.maxFilesReached(MAX_FILES));
+        return;
+      }
+
+      if (!freshWorkbooks.length) {
+        window.alert(t.duplicateFiles);
+        return;
+      }
+
+      mergeImportedWorkbooks(freshWorkbooks);
+    } catch {
+      window.alert(t.importFailed);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleImport = async () => {
+    setImporting(true);
+
+    try {
+      const pickedPaths = await pickFiles();
+
+      if (!pickedPaths.length) {
+        return;
+      }
+
+      const knownPaths = new Set(workbooks.map((item) => item.absolutePath));
+      const freshPaths = pickedPaths.filter((item) => !knownPaths.has(item));
+
+      if (workbooks.length + freshPaths.length > MAX_FILES) {
+        window.alert(t.maxFilesReached(MAX_FILES));
+        return;
+      }
+
+      if (!freshPaths.length) {
+        window.alert(t.duplicateFiles);
+        return;
+      }
+
+      const parsedWorkbooks = await getAllCachedWorkbooks(
+        freshPaths.map((absolutePath) => ({
+          absolutePath,
+          fingerprint: absolutePath,
+          headerDepth: 1,
+          isFavorite: false,
+          importedAt: Date.now(),
+        })),
+      );
+
+      mergeImportedWorkbooks(parsedWorkbooks);
+    } catch {
+      fileInputRef.current?.click();
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleImportFolder = async () => {
+    setImporting(true);
+
+    try {
+      const pickedPaths = await pickFolder();
+
+      if (!pickedPaths.length) {
+        return;
+      }
+
+      const parsedWorkbooks = await getAllCachedWorkbooks(
+        pickedPaths.map((absolutePath) => ({
+          absolutePath,
+          fingerprint: absolutePath,
+          headerDepth: 1,
+          isFavorite: false,
+          importedAt: Date.now(),
+        })),
+      );
+      const freshWorkbooks = dedupeImportedWorkbooks(parsedWorkbooks);
+
+      if (workbooks.length + freshWorkbooks.length > MAX_FILES) {
+        window.alert(t.maxFilesReached(MAX_FILES));
+        return;
+      }
+
+      if (!freshWorkbooks.length) {
+        window.alert(t.duplicateFiles);
+        return;
+      }
+
+      mergeImportedWorkbooks(freshWorkbooks);
+    } catch {
+      folderInputRef.current?.click();
     } finally {
       setImporting(false);
     }
   };
 
   const handleRemoveWorkbook = async (workbook: CachedWorkbook) => {
-    const confirmed = window.confirm(t.removeWorkbook(workbook.fileName));
+    const confirmed = window.confirm(t.removeConfirm(workbook.fileName));
     if (!confirmed) {
       return;
     }
 
-    await deleteCachedWorkbook(workbook.fingerprint);
     setWorkbooks((current) => current.filter((item) => item.fingerprint !== workbook.fingerprint));
+  };
+
+  const handleRemoveFolder = async (folderName: string, node: FileTreeNode) => {
+    const workbooksToRemove = collectNodeWorkbooks(node);
+    if (workbooksToRemove.length === 0) {
+      return;
+    }
+
+    const fingerprints = new Set(workbooksToRemove.map((workbook) => workbook.fingerprint));
+    const confirmed = window.confirm(t.removeFolderConfirm(folderName, workbooksToRemove.length));
+    if (!confirmed) {
+      return;
+    }
+
+    setWorkbooks((current) => current.filter((item) => !fingerprints.has(item.fingerprint)));
   };
 
   const copyToClipboard = async (text: string, event: MouseEvent<HTMLElement>, message: string) => {
@@ -582,12 +952,51 @@ export default function App() {
     });
   };
 
+  const handleOpenExplorer = async (absolutePath: string) => {
+    try {
+      await openWorkbookInExplorer(absolutePath);
+    } catch {
+      window.alert(t.explorerFailed);
+    }
+  };
+
+  const workbookMap = useMemo(
+    () => new Map(workbooks.map((workbook) => [workbook.fingerprint, workbook])),
+    [workbooks],
+  );
+  const fileTree = useMemo(() => buildFileTree(filteredWorkbooks), [filteredWorkbooks]);
+
   const totalMatches = searchHits.reduce((count, hit) => count + hit.rows.length, 0);
   const sheetJumpTargets = searchHits.map((hit) => ({
     id: hit.sheetId,
-    label: t.sheetJumpTarget(hit.sheetName, hit.rows.length),
+    label: `${hit.sheetName} · ${hit.rows.length}`,
   }));
   const enableExpandedLayout = layoutMode === "expanded" && submittedQuery !== "" && searchHits.length > 0;
+
+  useEffect(() => {
+    if (!submittedQuery || searchStartedAtRef.current === null || searchQueryRef.current !== submittedQuery) {
+      return;
+    }
+
+    const memory = "memory" in performance
+      ? {
+          totalJsHeapSizeMb: Number((((performance as Performance & { memory: { totalJSHeapSize: number } }).memory.totalJSHeapSize) / 1024 / 1024).toFixed(2)),
+          usedJsHeapSizeMb: Number((((performance as Performance & { memory: { usedJSHeapSize: number } }).memory.usedJSHeapSize) / 1024 / 1024).toFixed(2)),
+        }
+      : null;
+
+    void sendUiTelemetry("search_completed", {
+      queryLength: submittedQuery.length,
+      workbookCount: filteredWorkbooks.length,
+      hitSheetCount: searchHits.length,
+      totalMatches,
+      layoutMode,
+      durationMs: Number((performance.now() - searchStartedAtRef.current).toFixed(2)),
+      memory,
+    });
+
+    searchStartedAtRef.current = null;
+  }, [filteredWorkbooks.length, layoutMode, searchHits, submittedQuery, totalMatches]);
   const heroGridStyle: CSSProperties | undefined =
     syncedHeaderColumns === null
       ? undefined
@@ -600,9 +1009,9 @@ export default function App() {
       <div className="page-frame">
         <div className="app-shell">
           <section className="card duplicate-launch-card">
-            <p className="eyebrow">Excel Strict Searcher</p>
-            <h1>{t.duplicateLaunchTitle}</h1>
-            <p className="hero-copy">{t.duplicateLaunchCopy}</p>
+            <p className="eyebrow">{t.appTitle}</p>
+            <h1>{t.launcherDuplicateTitle}</h1>
+            <p className="hero-copy">{t.launcherDuplicateBody}</p>
           </section>
         </div>
       </div>
@@ -614,22 +1023,7 @@ export default function App() {
       <div className={`app-shell ${enableExpandedLayout ? "app-shell-expanded" : ""}`}>
         <header className="hero-grid" style={heroGridStyle}>
           <section className="hero-card">
-            <p className="eyebrow">Excel Strict Searcher</p>
-            <div className="language-switcher">
-              <span className="language-label">{t.language}</span>
-              <div className="layout-mode-group" role="tablist" aria-label={t.language}>
-                {(["zh", "en", "ja"] as Language[]).map((lang) => (
-                  <button
-                    key={lang}
-                    type="button"
-                    className={`layout-mode-pill${language === lang ? " is-active" : ""}`}
-                    onClick={() => setLanguage(lang)}
-                  >
-                    {lang === "zh" ? "中文" : lang === "en" ? "English" : "日本語"}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <p className="eyebrow">{t.appTitle}</p>
             <h1>{t.heroTitle}</h1>
             <p className="hero-copy">{t.heroCopy}</p>
             <div className="search-panel">
@@ -652,8 +1046,11 @@ export default function App() {
               </button>
             </div>
             <div className="toolbar">
-              <button className="secondary-button" type="button" onClick={handleImportClick} disabled={importing}>
+              <button className="secondary-button" type="button" onClick={() => void handleImport()} disabled={importing}>
                 {importing ? t.importing : t.importExcel}
+              </button>
+              <button className="ghost-button" type="button" onClick={() => void handleImportFolder()} disabled={importing}>
+                {t.importFolder}
               </button>
               <input
                 ref={fileInputRef}
@@ -661,44 +1058,56 @@ export default function App() {
                 type="file"
                 accept=".xls,.xlsx,.xlsm,.csv"
                 multiple
-                onChange={handleFilesSelected}
+                onChange={(event) => {
+                  void handleBrowserFilesSelected(event.target.files);
+                  event.target.value = "";
+                }}
+              />
+              <input
+                ref={folderInputRef}
+                hidden
+                type="file"
+                multiple
+                onChange={(event) => {
+                  void handleBrowserFolderSelected(event.target.files);
+                  event.target.value = "";
+                }}
+                {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
               />
               <span className="status-text">
-                {loading ? t.loadingCache : t.loadedFiles(workbooks.length)}
+                {loading ? t.loadingCache : t.filesLoaded(workbooks.length, MAX_FILES)}
               </span>
             </div>
             {candidates.length > 0 ? (
-              <div className="candidate-list">
-                {candidates.map((candidate) => (
-                  <button
-                    key={candidate}
-                    type="button"
-                    className="candidate-pill"
-                    onClick={() => {
-                      setInputValue(candidate);
-                      handleSubmit(candidate);
-                    }}
-                  >
-                    {candidate}
-                  </button>
-                ))}
+              <div className="sheet-jump-panel">
+                <span className="sheet-jump-label">{t.searchCandidates}</span>
+                <div className="sheet-jump-list">
+                  {candidates.map((candidate) => (
+                    <button
+                      key={candidate}
+                      type="button"
+                      className="candidate-pill"
+                      onClick={() => {
+                        setInputValue(candidate);
+                        handleSubmit(candidate);
+                      }}
+                    >
+                      {candidate}
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : null}
             {sheetJumpTargets.length > 0 ? (
               <div className="sheet-jump-panel">
-                <span className="sheet-jump-label">{t.sheetJumpLabel}</span>
+                <span className="sheet-jump-label">{t.hitSheets}</span>
                 <div className="sheet-jump-list">
                   {sheetJumpTargets.map((target) => (
                     <button
                       key={target.id}
                       type="button"
                       className="sheet-jump-pill"
-                      onClick={() =>
-                        document.getElementById(target.id)?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        })
-                      }
+                      onClick={() => setJumpToSheetId(target.id)}
                     >
                       {target.label}
                     </button>
@@ -708,20 +1117,28 @@ export default function App() {
             ) : null}
           </section>
           <section className="hero-actions">
+            <div className="global-toolbar">
+              <label className="field-label global-language-switcher">
+                <span>{t.language}</span>
+                <select value={language} onChange={(event) => setLanguage(event.target.value as AppLanguage)}>
+                  <option value="zh-CN">中文</option>
+                  <option value="en-US">English</option>
+                  <option value="ja-JP">日本語</option>
+                </select>
+              </label>
+            </div>
             <div className="hero-summary">
               <div className="hero-summary-block">
                 <span className="hero-summary-label">{t.currentLayout}</span>
                 <strong>{layoutMode === "standard" ? t.standard : t.expanded}</strong>
               </div>
               <div className="hero-summary-block">
-                <span className="hero-summary-label">{t.currentColumns}</span>
+                <span className="hero-summary-label">{t.columnDisplay}</span>
                 <strong>{columnMode === "all" ? t.allColumns : t.labeledColumns}</strong>
               </div>
               <div className="hero-summary-block">
-                <span className="hero-summary-label">{t.fileManagement}</span>
-                <strong>
-                  {loading ? t.loading : `${workbooks.length} / ${MAX_FILES}`}
-                </strong>
+                <span className="hero-summary-label">{t.activeArchive}</span>
+                <strong>{activeArchive || t.none}</strong>
               </div>
               <div className="hero-summary-block">
                 <span className="hero-summary-label">{t.currentKeyword}</span>
@@ -735,24 +1152,50 @@ export default function App() {
           <aside ref={sidebarRef} className="sidebar">
             <section className="card">
               <div className="section-heading">
-                <h2>{t.fileManagement}</h2>
-                <span>{t.fileCount(workbooks.length)}</span>
+                <h2>{t.projectArchive}</h2>
               </div>
+              <div className="archive-panel">
+                <div className="archive-current">
+                  <span className="hero-summary-label">{t.activeArchive}</span>
+                  <strong>{activeArchive || t.none}</strong>
+                </div>
+                <div className="archive-actions">
+                  <button type="button" className="primary-button" onClick={() => void handleSaveConfig()}>
+                    {t.exportConfig}
+                  </button>
+                  <button type="button" className="ghost-button" onClick={() => void handleLoadConfig()}>
+                    {t.importConfig}
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className="card">
+              <div className="section-heading">
+                <h2>{t.fileManagement}</h2>
+                <span>{filteredWorkbooks.length}</span>
+              </div>
+              <label className="field-label">
+                <span>{t.fileFilter}</span>
+                <input value={fileFilter} onChange={(event) => setFileFilter(event.target.value)} placeholder={t.searchPlaceholder} />
+              </label>
               <div className="file-list">
-                {workbooks.length === 0 ? (
-                  <p className="empty-text">{t.noCachedFiles}</p>
+                {filteredWorkbooks.length === 0 ? (
+                  <p className="empty-text">{t.noFiles}</p>
                 ) : (
-                  workbooks.map((workbook) => (
-                    <article key={workbook.fingerprint} className="file-item">
-                      <div>
-                        <strong>{workbook.fileName}</strong>
-                        <p>{formatFileMeta(workbook)}</p>
-                      </div>
-                      <button type="button" className="danger-link" onClick={() => void handleRemoveWorkbook(workbook)}>
-                        {t.delete}
-                      </button>
-                    </article>
-                  ))
+                  <FileTreeView
+                    node={fileTree}
+                    depth={0}
+                    onOpenLocation={(absolutePath) => void handleOpenExplorer(absolutePath)}
+                    onRemove={(workbook) => void handleRemoveWorkbook(workbook)}
+                    onRemoveFolder={(folderName, node) => void handleRemoveFolder(folderName, node)}
+                    openLabel={t.locateFile}
+                    openUnavailableLabel={t.openFolderUnavailable}
+                    removeLabel={t.remove}
+                    missingLabel={t.missing}
+                    collapseFolderLabel={t.collapseFolder}
+                    expandFolderLabel={t.expandFolder}
+                  />
                 )}
               </div>
             </section>
@@ -760,10 +1203,12 @@ export default function App() {
             <section className="card">
               <div className="section-heading">
                 <h2>{t.searchStatus}</h2>
-                <span>{submittedQuery ? t.keywordLabel(submittedQuery) : t.waitingSearch}</span>
+                <span className="section-heading-value" title={submittedQuery ? submittedQuery : t.waitingSearch}>
+                  {submittedQuery ? submittedQuery : t.waitingSearch}
+                </span>
               </div>
               <p className="summary-text">
-                {submittedQuery ? t.searchSummary(totalMatches) : t.searchHint}
+                {submittedQuery ? t.matchedRows(totalMatches) : t.emptyBeforeSearch}
               </p>
             </section>
           </aside>
@@ -771,8 +1216,8 @@ export default function App() {
           <section ref={resultsRef} className="results">
             <section className="card results-toolbar">
               <div className="results-toolbar-block">
-                <span className="results-toolbar-label">{t.layoutMode}</span>
-                <div className="layout-mode-group" role="tablist" aria-label={t.layoutMode}>
+                <span className="results-toolbar-label">{t.currentLayout}</span>
+                <div className="layout-mode-group" role="tablist" aria-label={t.currentLayout}>
                   <button
                     type="button"
                     className={`layout-mode-pill${layoutMode === "standard" ? " is-active" : ""}`}
@@ -808,258 +1253,281 @@ export default function App() {
                   </button>
                 </div>
               </div>
+              <div className="results-toolbar-block">
+                <span className="results-toolbar-label">{t.totalMatches(totalMatches)}</span>
+              </div>
             </section>
             {!submittedQuery ? (
-              <div className="empty-state">{t.searchStartHint}</div>
+              <div className="empty-state">{t.emptyBeforeSearch}</div>
             ) : searchHits.length === 0 ? (
-              <div className="empty-state">{t.searchNoResult}</div>
+              <div className="empty-state">{t.emptyNoResults}</div>
             ) : (
-              searchHits.map((hit) => {
-                const maxHeaderDepth = Math.max(1, hit.allRows.length);
-                const selectedHeaderDepth = Math.min(
-                  Math.max(headerDepthMap[hit.sheetId] ?? hit.defaultHeaderDepth, 1),
-                  maxHeaderDepth,
-                );
-                const headerRows = getHeaderRows(hit.allRows, selectedHeaderDepth);
-                const headerRowNumbers = new Set(headerRows.map((row) => row.rowNumber));
-                const visibleRows = hit.rows.filter((row) => !headerRowNumbers.has(row.rowNumber));
-                const sheetHeaderFilterMap = headerColumnFilterMap[hit.sheetId] ?? {};
-                const rowFilterOptions = new Map<number, HeaderFilterOption[]>();
+              <VirtualSheetList
+                items={searchHits}
+                itemKey={(hit) => hit.sheetId}
+                jumpToKey={jumpToSheetId}
+                renderItem={(hit) => {
+                  const workbook = workbookMap.get(hit.fingerprint);
+                  const maxHeaderDepth = Math.max(1, hit.allRows.length);
+                  const defaultHeaderDepth = workbook?.headerDepth ?? hit.defaultHeaderDepth;
+                  const selectedHeaderDepth = Math.min(
+                    Math.max(headerDepthMap[hit.sheetId] ?? defaultHeaderDepth, 1),
+                    maxHeaderDepth,
+                  );
+                  const headerRows = getHeaderRows(hit.allRows, selectedHeaderDepth);
+                  const headerRowNumbers = new Set(headerRows.map((row) => row.rowNumber));
+                  const visibleRows = hit.rows.filter((row) => !headerRowNumbers.has(row.rowNumber));
+                  const sheetHeaderFilterMap = headerColumnFilterMap[hit.sheetId] ?? {};
+                  const rowFilterOptions = new Map<number, HeaderFilterOption[]>();
 
-                headerRows.forEach((row) => {
-                  const options = getRenderableCells(row.cells)
-                    .filter(({ cell }) => cell.value.trim() !== "")
-                    .map(({ cell, index }) => ({
-                      key: `${row.rowNumber}:${index}`,
-                      label: cell.value,
-                      columns: Array.from({ length: cell.colSpan }, (_, offset) => index + offset),
-                    }));
+                  headerRows.forEach((row) => {
+                    const options = getRenderableCells(row.cells)
+                      .filter(({ cell }) => cell.value.trim() !== "")
+                      .map(({ cell, index }) => ({
+                        key: `${row.rowNumber}:${index}`,
+                        label: cell.value,
+                        columns: Array.from({ length: cell.colSpan }, (_, offset) => index + offset),
+                      }));
 
-                  rowFilterOptions.set(row.rowNumber, options);
-                });
+                    rowFilterOptions.set(row.rowNumber, options);
+                  });
 
-                const activeFilterRow = headerRows.find(
-                  (row) => (sheetHeaderFilterMap[row.rowNumber] ?? []).length > 0,
-                )?.rowNumber;
+                  const activeFilterRow = headerRows.find(
+                    (row) => (sheetHeaderFilterMap[row.rowNumber] ?? []).length > 0,
+                  )?.rowNumber;
 
-                const visibleColumns =
-                  activeFilterRow !== undefined
-                    ? new Set(
-                        (sheetHeaderFilterMap[activeFilterRow] ?? []).flatMap((filterKey) => {
-                          const option = rowFilterOptions.get(activeFilterRow)?.find((item) => item.key === filterKey);
-                          return option?.columns ?? [];
-                        }),
-                      )
-                    : columnMode === "labeled"
-                      ? buildVisibleColumnSet(headerRows, hit.columnCount)
-                      : new Set(Array.from({ length: hit.columnCount }, (_, index) => index));
+                  const visibleColumns =
+                    activeFilterRow !== undefined
+                      ? new Set(
+                          (sheetHeaderFilterMap[activeFilterRow] ?? []).flatMap((filterKey) => {
+                            const option = rowFilterOptions.get(activeFilterRow)?.find((item) => item.key === filterKey);
+                            return option?.columns ?? [];
+                          }),
+                        )
+                      : columnMode === "labeled"
+                        ? buildVisibleColumnSet(headerRows, hit.columnCount)
+                        : new Set(Array.from({ length: hit.columnCount }, (_, index) => index));
 
-                const visibleColumnIndexes = Array.from(visibleColumns).sort((a, b) => a - b);
-                const headerCellMap = buildSectionRowCells(hit.allRows, headerRows, visibleColumns);
-                const bodyCellMap = buildSectionRowCells(hit.allRows, visibleRows, visibleColumns);
+                  const visibleColumnIndexes = Array.from(visibleColumns).sort((a, b) => a - b);
+                  const headerCellMap = buildSectionRowCells(hit.allRows, headerRows, visibleColumns);
+                  const bodyCellMap = buildSectionRowCells(hit.allRows, visibleRows, visibleColumns);
 
-                return (
-                  <section key={`${hit.fingerprint}-${hit.sheetId}`} className="sheet-box" id={hit.sheetId}>
-                    <div className="sheet-header">
-                      <div className="sheet-headline">
-                        <div>
-                          <p className="sheet-title">
-                            [{hit.fileName}] - [{hit.sheetName}]
-                          </p>
-                          <p className="sheet-meta">{visibleRows.length > 0 ? t.hitRows(visibleRows.length) : t.headerOnly}</p>
-                        </div>
-                        <label className="header-row-control">
-                          <span>{t.headerDepth}</span>
-                          <div className="header-stepper">
-                            <button
-                              type="button"
-                              className="stepper-button"
-                              onClick={() =>
-                                setHeaderDepthMap((current) => ({
-                                  ...current,
-                                  [hit.sheetId]: Math.max(selectedHeaderDepth - 1, 1),
-                                }))
-                              }
-                            >
-                              -
-                            </button>
-                            <input
-                              type="number"
-                              min={1}
-                              max={maxHeaderDepth}
-                              value={selectedHeaderDepth}
-                              onChange={(event) => {
-                                const nextValue = Number.parseInt(event.target.value, 10);
-                                setHeaderDepthMap((current) => ({
-                                  ...current,
-                                  [hit.sheetId]: Number.isNaN(nextValue)
-                                    ? hit.defaultHeaderDepth
-                                    : Math.min(Math.max(nextValue, 1), maxHeaderDepth),
-                                }));
-                              }}
-                            />
-                            <button
-                              type="button"
-                              className="stepper-button"
-                              onClick={() =>
-                                setHeaderDepthMap((current) => ({
-                                  ...current,
-                                  [hit.sheetId]: Math.min(selectedHeaderDepth + 1, maxHeaderDepth),
-                                }))
-                              }
-                            >
-                              +
-                            </button>
-                          </div>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="header-filter-panel">
-                      {headerRows.map((row) => {
-                        const options = rowFilterOptions.get(row.rowNumber) ?? [];
-                        const selectedKeys = sheetHeaderFilterMap[row.rowNumber] ?? [];
-                        const rowDisabled = activeFilterRow !== undefined && activeFilterRow !== row.rowNumber;
-
-                        return (
-                          <div key={`${hit.sheetId}-filter-row-${row.rowNumber}`} className="header-filter-row">
-                            <span className="header-filter-title">{t.headerLabelColumns(row.rowNumber)}</span>
-                            <div className="header-filter-tags">
-                              <button
-                                type="button"
-                                className={`filter-tag${selectedKeys.length === 0 ? " is-active" : ""}`}
-                                onClick={() =>
-                                  setHeaderColumnFilterMap((current) => ({
-                                    ...current,
-                                    [hit.sheetId]: {
-                                      ...(current[hit.sheetId] ?? {}),
-                                      [row.rowNumber]: [],
-                                    },
-                                  }))
-                                }
-                                disabled={rowDisabled}
-                              >
-                                {t.all}
-                              </button>
-                              {options.map((option) => {
-                                const isActive = selectedKeys.includes(option.key);
-                                return (
-                                  <button
-                                    key={option.key}
-                                    type="button"
-                                    className={`filter-tag${isActive ? " is-active" : ""}`}
-                                    disabled={rowDisabled}
-                                    onClick={() =>
-                                      setHeaderColumnFilterMap((current) => {
-                                        const currentSheetMap = current[hit.sheetId] ?? {};
-                                        const currentRowKeys = currentSheetMap[row.rowNumber] ?? [];
-                                        const nextRowKeys = currentRowKeys.includes(option.key)
-                                          ? currentRowKeys.filter((item) => item !== option.key)
-                                          : [...currentRowKeys, option.key];
-
-                                        return {
-                                          ...current,
-                                          [hit.sheetId]: {
-                                            [row.rowNumber]: nextRowKeys,
-                                          },
-                                        };
-                                      })
-                                    }
-                                  >
-                                    {option.label}
-                                  </button>
-                                );
-                              })}
+                  return (
+                    <section key={`${hit.fingerprint}-${hit.sheetId}`} className="sheet-box" id={hit.sheetId}>
+                      <div className="sheet-header">
+                        <button
+                          type="button"
+                          className="ghost-button compact-button sheet-locate-button"
+                          onClick={() => void handleOpenExplorer(hit.absolutePath)}
+                          disabled={hit.absolutePath === hit.fileName}
+                          title={hit.absolutePath === hit.fileName ? t.openFolderUnavailable : hit.absolutePath}
+                        >
+                          {hit.absolutePath === hit.fileName ? t.openFolderUnavailable : t.locateFile}
+                        </button>
+                        <div className="sheet-headline">
+                          <div className="sheet-title-group">
+                            <div>
+                              <p className="sheet-title">
+                                [{hit.fileName}] - [{hit.sheetName}]
+                              </p>
+                              <p className="sheet-meta">{visibleRows.length > 0 ? t.hitCountRows(visibleRows.length) : t.headerOnly}</p>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
+                          <div className="sheet-actions">
+                            {hit.missing ? <span className="file-status-badge is-missing">{t.missing}</span> : null}
+                          </div>
+                          <label className="header-row-control">
+                            <span>{t.headerDepth}</span>
+                            <div className="header-stepper">
+                              <button
+                                type="button"
+                                className="stepper-button"
+                                onClick={() =>
+                                  setHeaderDepthMap((current) => ({
+                                    ...current,
+                                    [hit.sheetId]: Math.max(selectedHeaderDepth - 1, 1),
+                                  }))
+                                }
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                min={1}
+                                max={maxHeaderDepth}
+                                value={selectedHeaderDepth}
+                                onChange={(event) => {
+                                  const nextValue = Number.parseInt(event.target.value, 10);
+                                  setHeaderDepthMap((current) => ({
+                                    ...current,
+                                    [hit.sheetId]: Number.isNaN(nextValue)
+                                      ? defaultHeaderDepth
+                                      : Math.min(Math.max(nextValue, 1), maxHeaderDepth),
+                                  }));
+                                }}
+                              />
+                              <button
+                                type="button"
+                                className="stepper-button"
+                                onClick={() =>
+                                  setHeaderDepthMap((current) => ({
+                                    ...current,
+                                    [hit.sheetId]: Math.min(selectedHeaderDepth + 1, maxHeaderDepth),
+                                  }))
+                                }
+                              >
+                                +
+                              </button>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+                      <div className="header-filter-panel">
+                        {headerRows.map((row) => {
+                          const options = rowFilterOptions.get(row.rowNumber) ?? [];
+                          const selectedKeys = sheetHeaderFilterMap[row.rowNumber] ?? [];
+                          const rowDisabled = activeFilterRow !== undefined && activeFilterRow !== row.rowNumber;
 
-                    <div className="table-scroll">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th className="row-number sticky-header-cell sticky-left">{t.rowNumber}</th>
-                            {visibleColumnIndexes.map((index) => (
-                              <th key={`${hit.sheetId}-column-label-${index}`} className="sticky-header-cell excel-column-header">
-                                {toExcelColumnLabel(index)}
-                              </th>
-                            ))}
-                          </tr>
-                          {headerRows.map((row) => (
-                            <tr key={`${hit.sheetId}-header-row-${row.rowNumber}`}>
-                              <th className="row-number sticky-header-cell sticky-left">
+                          return (
+                            <div key={`${hit.sheetId}-filter-row-${row.rowNumber}`} className="header-filter-row">
+                              <span className="header-filter-title">{t.headerRowLabel(row.rowNumber)}</span>
+                              <div className="header-filter-tags">
                                 <button
                                   type="button"
-                                  className="row-copy-button"
-                                  onClick={(event) => void copyToClipboard(row.joined, event, t.copyRow(row.rowNumber))}
+                                  className={`filter-tag${selectedKeys.length === 0 ? " is-active" : ""}`}
+                                  onClick={() =>
+                                    setHeaderColumnFilterMap((current) => ({
+                                      ...current,
+                                      [hit.sheetId]: {
+                                        ...(current[hit.sheetId] ?? {}),
+                                        [row.rowNumber]: [],
+                                      },
+                                    }))
+                                  }
+                                  disabled={rowDisabled}
                                 >
-                                  {row.rowNumber}
+                                  {t.all}
                                 </button>
-                              </th>
-                              {(headerCellMap.get(row.rowNumber) ?? []).map(({ cell, index }) => (
-                                <th
-                                  key={`${hit.sheetId}-header-cell-${row.rowNumber}-${index}`}
-                                  className={`sticky-header-cell header-cell${cell.isMerged ? " merged-cell" : ""}`}
-                                  colSpan={cell.colSpan}
-                                  rowSpan={cell.rowSpan}
-                                >
-                                  <button
-                                  type="button"
-                                  className={`cell-button header-cell-button${cell.isMerged ? " merged-cell-button" : ""}`}
-                                  onClick={(event) => void copyToClipboard(cell.value, event, t.copyHeaderCell)}
-                                >
-                                  {cell.value}
-                                  </button>
+                                {options.map((option) => {
+                                  const isActive = selectedKeys.includes(option.key);
+                                  return (
+                                    <button
+                                      key={option.key}
+                                      type="button"
+                                      className={`filter-tag${isActive ? " is-active" : ""}`}
+                                      disabled={rowDisabled}
+                                      onClick={() =>
+                                        setHeaderColumnFilterMap((current) => {
+                                          const currentSheetMap = current[hit.sheetId] ?? {};
+                                          const currentRowKeys = currentSheetMap[row.rowNumber] ?? [];
+                                          const nextRowKeys = currentRowKeys.includes(option.key)
+                                            ? currentRowKeys.filter((item) => item !== option.key)
+                                            : [...currentRowKeys, option.key];
+
+                                          return {
+                                            ...current,
+                                            [hit.sheetId]: {
+                                              [row.rowNumber]: nextRowKeys,
+                                            },
+                                          };
+                                        })
+                                      }
+                                    >
+                                      {option.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="table-scroll">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th className="row-number sticky-header-cell sticky-left">#</th>
+                              {visibleColumnIndexes.map((index) => (
+                                <th key={`${hit.sheetId}-column-label-${index}`} className="sticky-header-cell excel-column-header">
+                                  {toExcelColumnLabel(index)}
                                 </th>
                               ))}
                             </tr>
-                          ))}
-                        </thead>
-                        <tbody>
-                          {visibleRows.map((row) => (
-                            <tr key={`${hit.sheetId}-${row.rowNumber}`}>
-                              <td className="row-number sticky-left body-index-cell">
-                                <button
-                                  type="button"
-                                  className="row-copy-button"
-                                  onClick={(event) => void copyToClipboard(row.joined, event, t.copyRow(row.rowNumber))}
-                                >
-                                  {row.rowNumber}
-                                </button>
-                              </td>
-                              {(bodyCellMap.get(row.rowNumber) ?? []).map(({ cell, index }) => (
-                                <td
-                                  key={`${hit.sheetId}-${row.rowNumber}-${index}`}
-                                  className={cell.isMerged ? "merged-cell" : undefined}
-                                  colSpan={cell.colSpan}
-                                  rowSpan={cell.rowSpan}
-                                >
+                            {headerRows.map((row) => (
+                              <tr key={`${hit.sheetId}-header-row-${row.rowNumber}`}>
+                                <th className="row-number sticky-header-cell sticky-left">
                                   <button
-                                  type="button"
-                                  className={`cell-button${cell.isMerged ? " merged-cell-button" : ""}`}
-                                  onClick={(event) => void copyToClipboard(cell.value, event, t.copyCell)}
-                                >
-                                  {highlightText(cell.value, submittedQuery)}
+                                    type="button"
+                                    className="row-copy-button"
+                                    onClick={(event) => void copyToClipboard(row.joined, event, t.copiedRow(row.rowNumber))}
+                                  >
+                                    {row.rowNumber}
+                                  </button>
+                                </th>
+                                {(headerCellMap.get(row.rowNumber) ?? []).map(({ cell, index }) => (
+                                  <th
+                                    key={`${hit.sheetId}-header-cell-${row.rowNumber}-${index}`}
+                                    className={`sticky-header-cell header-cell${cell.isMerged ? " merged-cell" : ""}`}
+                                    colSpan={cell.colSpan}
+                                    rowSpan={cell.rowSpan}
+                                  >
+                                    <button
+                                      type="button"
+                                      className={`cell-button header-cell-button${cell.isMerged ? " merged-cell-button" : ""}`}
+                                      onClick={(event) => void copyToClipboard(cell.value, event, t.copiedHeaderCell)}
+                                    >
+                                      {cell.value}
+                                    </button>
+                                  </th>
+                                ))}
+                              </tr>
+                            ))}
+                          </thead>
+                          <tbody>
+                            {visibleRows.map((row) => (
+                              <tr key={`${hit.sheetId}-${row.rowNumber}`}>
+                                <td className="row-number sticky-left body-index-cell">
+                                  <button
+                                    type="button"
+                                    className="row-copy-button"
+                                    onClick={(event) => void copyToClipboard(row.joined, event, t.copiedRow(row.rowNumber))}
+                                  >
+                                    {row.rowNumber}
                                   </button>
                                 </td>
-                              ))}
-                            </tr>
-                          ))}
-                          {visibleRows.length === 0 ? (
-                            <tr>
-                              <td colSpan={visibleColumnIndexes.length + 1} className="sheet-empty-cell">
-                                {t.noResult}
-                              </td>
-                            </tr>
-                          ) : null}
-                        </tbody>
-                      </table>
-                    </div>
-                  </section>
-                );
-              })
+                                {(bodyCellMap.get(row.rowNumber) ?? []).map(({ cell, index }) => (
+                                  <td
+                                    key={`${hit.sheetId}-${row.rowNumber}-${index}`}
+                                    className={cell.isMerged ? "merged-cell" : undefined}
+                                    colSpan={cell.colSpan}
+                                    rowSpan={cell.rowSpan}
+                                  >
+                                    <button
+                                      type="button"
+                                      className={`cell-button${cell.isMerged ? " merged-cell-button" : ""}`}
+                                      onClick={(event) => void copyToClipboard(cell.value, event, t.copiedCell)}
+                                    >
+                                      {highlightText(cell.value, submittedQuery)}
+                                    </button>
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                            {visibleRows.length === 0 ? (
+                              <tr>
+                                <td colSpan={visibleColumnIndexes.length + 1} className="sheet-empty-cell">
+                                  {t.emptyNoResults}
+                                </td>
+                              </tr>
+                            ) : null}
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+                  );
+                }}
+              />
             )}
           </section>
         </main>

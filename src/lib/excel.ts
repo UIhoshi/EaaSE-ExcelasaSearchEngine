@@ -145,7 +145,7 @@ const sheetToRecords = (
   };
 };
 
-export const parseExcelFile = async (file: File): Promise<CachedWorkbook> => {
+export const parseExcelFile = async (file: File, sourcePath?: string): Promise<CachedWorkbook> => {
   const XLSX = await import("xlsx");
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
@@ -172,6 +172,10 @@ export const parseExcelFile = async (file: File): Promise<CachedWorkbook> => {
     fileSize: file.size,
     lastModified: file.lastModified,
     importedAt: Date.now(),
+    absolutePath: sourcePath ?? file.name,
+    headerDepth: 1,
+    isFavorite: false,
+    missing: false,
     sheets,
     uniqueValues: Array.from(uniqueValueSet),
   };
