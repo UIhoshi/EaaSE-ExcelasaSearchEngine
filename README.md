@@ -155,4 +155,3 @@ The final release command rebuilds:
 
 - Sync source-oriented files only.
 - Do not sync local runtime output, `node_modules`, `dist`, temporary packaging folders, logs, or other build byproducts.
-- Internal collaboration notes such as `agentlogic.md` stay outside the public source sync.

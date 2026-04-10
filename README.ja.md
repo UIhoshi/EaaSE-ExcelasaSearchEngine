@@ -144,4 +144,3 @@ npm run package:github-release
 
 - GitHub へはソースコード指向の内容のみ同期します。
 - ローカル実行成果物、`node_modules`、`dist`、一時パッケージングフォルダー、ログ、その他の build 副産物は同期しません。
-- `agentlogic.md` のような内部協調用ドキュメントは公開ソース同期に含めません。

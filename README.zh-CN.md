@@ -144,4 +144,3 @@ npm run package:github-release
 
 - 只同步源码导向内容到 GitHub。
 - 不同步本地运行产物、`node_modules`、`dist`、临时打包目录、日志以及其他 build 副产物。
-- `agentlogic.md` 这类内部协作说明不进入公开源码同步范围。
