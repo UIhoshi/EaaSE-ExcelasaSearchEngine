@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { exportConfigByDialog, importConfigByDialog, loadConfig, saveConfig } from "../lib/api";
-import { getAllCachedWorkbooks } from "../lib/indexedDb";
-import { buildWorkbookCachePayload, cloneWorkbookForConfig, isWorkbookCacheSnapshot } from "../lib/workbookCache";
+import { loadWorkbooksFromRepository } from "../lib/workbookRepository";
+import { buildPersistedWorkbookPayload, cloneWorkbookSnapshot, isWorkbookCacheSnapshot } from "../lib/workbookCache";
 import { resolveInitialLanguage } from "../lib/i18n";
 import type { AppLanguage, CachedWorkbook, ConfigWorkbookRecord, ProjectConfig, ToastState } from "../types";
 
@@ -44,10 +44,12 @@ export const useWorkbookArchive = ({
     nextLayoutMode: "standard" | "expanded",
     nextLanguage: AppLanguage,
   ) => {
+    // The frontend keeps a restorable snapshot payload. The local API will normalize
+    // it into config references plus cache.db entries when runtime storage is available.
     await saveConfig({
       fileName: AUTOSAVE_FILE_NAME,
       configName: "Auto Save",
-      workbooks: buildWorkbookCachePayload(nextWorkbooks),
+      workbooks: buildPersistedWorkbookPayload(nextWorkbooks),
       preferences: {
         layout: nextLayoutMode,
         theme: "light",
@@ -60,11 +62,11 @@ export const useWorkbookArchive = ({
     config: ProjectConfig,
     options?: { silent?: boolean; archiveName?: string },
   ) => {
-    const cachedSnapshots = config.workbooks.filter(isWorkbookCacheSnapshot).map((workbook) => cloneWorkbookForConfig(workbook));
+    const cachedSnapshots = config.workbooks.filter(isWorkbookCacheSnapshot).map((workbook) => cloneWorkbookSnapshot(workbook));
     const workbookRecords = config.workbooks.filter(
       (workbook): workbook is ConfigWorkbookRecord => !isWorkbookCacheSnapshot(workbook),
     );
-    const restoredWorkbooks = workbookRecords.length > 0 ? await getAllCachedWorkbooks(workbookRecords) : [];
+    const restoredWorkbooks = workbookRecords.length > 0 ? await loadWorkbooksFromRepository(workbookRecords) : [];
     const nextWorkbooks = [...cachedSnapshots, ...restoredWorkbooks];
 
     nextWorkbooks.sort((a, b) => b.importedAt - a.importedAt);
@@ -116,7 +118,7 @@ export const useWorkbookArchive = ({
       void saveConfig({
         fileName: AUTOSAVE_FILE_NAME,
         configName: "Auto Save",
-        workbooks: buildWorkbookCachePayload(workbooks),
+        workbooks: buildPersistedWorkbookPayload(workbooks),
         preferences: {
           layout: layoutMode,
           theme: "light",
@@ -133,7 +135,7 @@ export const useWorkbookArchive = ({
       const config = await exportConfigByDialog({
         fileName: activeArchive || "project-archive",
         configName: activeArchive || "Project Archive",
-        workbooks: buildWorkbookCachePayload(workbooks),
+        workbooks: buildPersistedWorkbookPayload(workbooks),
         preferences: {
           layout: layoutMode,
           theme: "light",
@@ -176,11 +178,20 @@ export const useWorkbookArchive = ({
     }
   };
 
+  const persistArchiveState = async (
+    nextWorkbooks: CachedWorkbook[],
+    nextLayoutMode = layoutMode,
+    nextLanguage = language,
+  ) => {
+    await persistDefaultCache(nextWorkbooks, nextLayoutMode, nextLanguage);
+  };
+
   return {
     activeArchive,
     handleLoadConfig,
     handleSaveConfig,
     loading,
+    persistArchiveState,
     setActiveArchive,
   };
 };

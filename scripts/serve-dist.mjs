@@ -336,6 +336,102 @@ const writeError = (response, statusCode, message) => {
   writeJson(response, statusCode, { error: message });
 };
 
+const pathExists = async (targetPath) => {
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const pruneCacheToConfigWorkbooks = (workbooks) => {
+  const items = Array.isArray(workbooks) ? workbooks : [];
+  const expectedFingerprints = new Set();
+  const expectedPaths = new Set();
+
+  for (const item of items) {
+    const fingerprint = String(item?.fingerprint ?? "").trim();
+    if (fingerprint) {
+      expectedFingerprints.add(fingerprint);
+    }
+
+    const absolutePath = String(item?.absolutePath ?? "").trim();
+    if (absolutePath) {
+      expectedPaths.add(path.resolve(absolutePath));
+    }
+  }
+
+  const staleFingerprints = workbookCacheDb
+    .listWorkbookRecords()
+    .filter(
+      (record) =>
+        !expectedFingerprints.has(record.fingerprint) &&
+        !expectedPaths.has(path.resolve(String(record.absolutePath ?? ""))),
+    )
+    .map((record) => record.fingerprint);
+
+  if (staleFingerprints.length === 0) {
+    return {
+      removedCount: 0,
+      remainingCount: workbookCacheDb.getStats().workbookCount,
+      compacted: false,
+    };
+  }
+
+  const result = workbookCacheDb.deleteWorkbooks(staleFingerprints);
+  workbookCacheDb.compact();
+  return {
+    ...result,
+    compacted: true,
+  };
+};
+
+const normalizeConfigWorkbooks = async (workbooks) => {
+  const items = Array.isArray(workbooks) ? workbooks : [];
+  const normalized = await Promise.all(
+    items.map(async (item) => {
+      if (hasPersistableWorkbookSnapshot(item)) {
+        return workbookCacheDb.rehydrateConfigWorkbooks([item])[0];
+      }
+
+      const absolutePath = path.resolve(String(item?.absolutePath ?? ""));
+      const exists = await pathExists(absolutePath);
+      if (!exists) {
+        workbookCacheDb.deleteWorkbooks([item?.fingerprint ?? absolutePath]);
+        const summary = workbookCacheDb.getWorkbookSummary(item?.fingerprint ?? absolutePath, {
+          ...item,
+          absolutePath,
+        });
+
+        return {
+          ...(summary ?? {
+            fingerprint: item?.fingerprint ?? absolutePath,
+            fileName: path.basename(absolutePath),
+            fileSize: 0,
+            lastModified: 0,
+            importedAt: item?.importedAt ?? Date.now(),
+            absolutePath,
+            headerDepth: item?.headerDepth ?? 1,
+            isFavorite: item?.isFavorite ?? false,
+          }),
+          missing: true,
+          sheets: [],
+          uniqueValues: [],
+          error: "Source workbook is missing",
+        };
+      }
+
+      return workbookCacheDb.getWorkbookSummary(item?.fingerprint ?? absolutePath, {
+        ...item,
+        absolutePath,
+      });
+    }),
+  );
+
+  return normalized.filter(Boolean);
+};
+
 const cancelShutdown = () => {
   if (shutdownTimer) {
     clearTimeout(shutdownTimer);
@@ -708,6 +804,35 @@ const handleApiRequest = async (request, response, requestUrl) => {
     return true;
   }
 
+  if (request.method === "POST" && requestUrl.pathname === "/api/workbooks/delete") {
+    const body = await readJsonBody(request);
+    const fingerprints = Array.isArray(body.fingerprints) ? body.fingerprints : [];
+    const result = workbookCacheDb.deleteWorkbooks(fingerprints);
+    const compacted = result.removedCount > 0;
+    if (compacted) {
+      workbookCacheDb.compact();
+    }
+    workbookCacheDb.checkpoint();
+    writeJson(response, 200, { ...result, compacted });
+    await finishApiMetric("delete_workbooks", {
+      requestedCount: fingerprints.length,
+      removedCount: result.removedCount,
+      remainingCount: result.remainingCount,
+      compacted,
+    });
+    return true;
+  }
+
+  if (request.method === "GET" && requestUrl.pathname === "/api/debug/cache-db") {
+    const stats = workbookCacheDb.getStats();
+    writeJson(response, 200, {
+      cacheDbPath: workbookCacheDb.cacheDbPath,
+      ...stats,
+    });
+    await finishApiMetric("debug_cache_db", stats);
+    return true;
+  }
+
   if (request.method === "POST" && requestUrl.pathname === "/api/search/query") {
     const body = await readJsonBody(request);
     const query = String(body.query ?? "");
@@ -773,9 +898,17 @@ const handleApiRequest = async (request, response, requestUrl) => {
     const configPath = toConfigPath(fileName);
     const raw = await fs.readFile(configPath, "utf8");
     const config = JSON.parse(raw);
-    config.workbooks = workbookCacheDb.rehydrateConfigWorkbooks(Array.isArray(config.workbooks) ? config.workbooks : []);
+    const pruneResult = pruneCacheToConfigWorkbooks(config.workbooks);
+    config.workbooks = await normalizeConfigWorkbooks(config.workbooks);
+    workbookCacheDb.checkpoint();
     writeJson(response, 200, { config });
-    await finishApiMetric("config_load", { fileName, workbookCount: Array.isArray(config.workbooks) ? config.workbooks.length : 0 });
+    await finishApiMetric("config_load", {
+      fileName,
+      workbookCount: Array.isArray(config.workbooks) ? config.workbooks.length : 0,
+      prunedCount: pruneResult.removedCount,
+      remainingCount: pruneResult.remainingCount,
+      compacted: pruneResult.compacted,
+    });
     return true;
   }
 
@@ -799,11 +932,16 @@ const handleApiRequest = async (request, response, requestUrl) => {
 
     const raw = await fs.readFile(selectedPath, "utf8");
     const config = JSON.parse(raw);
-    config.workbooks = workbookCacheDb.rehydrateConfigWorkbooks(Array.isArray(config.workbooks) ? config.workbooks : []);
+    const pruneResult = pruneCacheToConfigWorkbooks(config.workbooks);
+    config.workbooks = await normalizeConfigWorkbooks(config.workbooks);
+    workbookCacheDb.checkpoint();
     writeJson(response, 200, { config });
     await finishApiMetric("config_import_dialog", {
       selectedPath,
       workbookCount: Array.isArray(config.workbooks) ? config.workbooks.length : 0,
+      prunedCount: pruneResult.removedCount,
+      remainingCount: pruneResult.remainingCount,
+      compacted: pruneResult.compacted,
     });
     return true;
   }

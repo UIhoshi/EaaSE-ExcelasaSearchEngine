@@ -80,6 +80,14 @@ export const loadWorkbooksFromPaths = async (
   return payload.workbooks ?? [];
 };
 
+export const removeWorkbooksFromCache = async (
+  fingerprints: string[],
+): Promise<{ removedCount: number; remainingCount: number }> =>
+  request<{ removedCount: number; remainingCount: number }>("/api/workbooks/delete", {
+    method: "POST",
+    body: JSON.stringify({ fingerprints }),
+  });
+
 export const searchWorkbooksInCache = async (
   query: string,
   fingerprints: string[],

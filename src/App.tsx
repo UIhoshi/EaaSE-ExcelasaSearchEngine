@@ -1,6 +1,7 @@
 import {
   type CSSProperties,
   type MouseEvent,
+  startTransition,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -16,7 +17,7 @@ import {
   sendUiTelemetry,
 } from "./lib/api";
 import { parseExcelFile } from "./lib/excel";
-import { getAllCachedWorkbooks } from "./lib/indexedDb";
+import { loadWorkbooksFromRepository, removeWorkbooksFromRepository } from "./lib/workbookRepository";
 import { getDictionary, resolveInitialLanguage } from "./lib/i18n";
 import type {
   AppLanguage,
@@ -523,7 +524,7 @@ export default function App() {
   const deferredFileFilter = useDeferredValue(fileFilter);
   const searchStartedAtRef = useRef<number | null>(null);
   const searchQueryRef = useRef("");
-  const { activeArchive, handleLoadConfig, handleSaveConfig, loading } = useWorkbookArchive({
+  const { activeArchive, handleLoadConfig, handleSaveConfig, loading, persistArchiveState } = useWorkbookArchive({
     language,
     layoutMode,
     setLanguage,
@@ -760,7 +761,9 @@ export default function App() {
   };
 
   const mergeImportedWorkbooks = (nextWorkbooks: CachedWorkbook[]) => {
-    setWorkbooks((current) => [...nextWorkbooks, ...current].sort((a, b) => b.importedAt - a.importedAt));
+    startTransition(() => {
+      setWorkbooks((current) => [...nextWorkbooks, ...current].sort((a, b) => b.importedAt - a.importedAt));
+    });
   };
 
   const dedupeImportedWorkbooks = (incoming: CachedWorkbook[]) => {
@@ -861,7 +864,7 @@ export default function App() {
         return;
       }
 
-      const parsedWorkbooks = await getAllCachedWorkbooks(
+      const parsedWorkbooks = await loadWorkbooksFromRepository(
         freshPaths.map((absolutePath) => ({
           absolutePath,
           fingerprint: absolutePath,
@@ -889,7 +892,7 @@ export default function App() {
         return;
       }
 
-      const parsedWorkbooks = await getAllCachedWorkbooks(
+      const parsedWorkbooks = await loadWorkbooksFromRepository(
         pickedPaths.map((absolutePath) => ({
           absolutePath,
           fingerprint: absolutePath,
@@ -924,7 +927,12 @@ export default function App() {
       return;
     }
 
-    setWorkbooks((current) => current.filter((item) => item.fingerprint !== workbook.fingerprint));
+    const nextWorkbooks = workbooks.filter((item) => item.fingerprint !== workbook.fingerprint);
+    void Promise.allSettled([
+      removeWorkbooksFromRepository([workbook.fingerprint]),
+      persistArchiveState(nextWorkbooks),
+    ]);
+    setWorkbooks(nextWorkbooks);
   };
 
   const handleRemoveFolder = async (folderName: string, node: FileTreeNode) => {
@@ -939,7 +947,12 @@ export default function App() {
       return;
     }
 
-    setWorkbooks((current) => current.filter((item) => !fingerprints.has(item.fingerprint)));
+    const nextWorkbooks = workbooks.filter((item) => !fingerprints.has(item.fingerprint));
+    void Promise.allSettled([
+      removeWorkbooksFromRepository(Array.from(fingerprints)),
+      persistArchiveState(nextWorkbooks),
+    ]);
+    setWorkbooks(nextWorkbooks);
   };
 
   const copyToClipboard = async (text: string, event: MouseEvent<HTMLElement>, message: string) => {

@@ -37,8 +37,14 @@ export const useSearchWorker = (
   }, []);
 
   useEffect(() => {
+    if (!candidateQuery) {
+      startTransition(() => setCandidates([]));
+      return;
+    }
+
     const fingerprints = workbooks.map((workbook) => workbook.fingerprint);
 
+    // Prefer runtime cache lookups. The worker keeps quickstart and degraded API mode usable.
     void buildSearchCandidatesInCache(candidateQuery, fingerprints, 20)
       .then((response) => {
         startTransition(() => setCandidates(response.candidates ?? []));
@@ -54,6 +60,11 @@ export const useSearchWorker = (
   }, [candidateQuery, workbooks]);
 
   useEffect(() => {
+    if (!submittedQuery) {
+      startTransition(() => setSearchHits([]));
+      return;
+    }
+
     const fingerprints = workbooks.map((workbook) => workbook.fingerprint);
 
     void searchWorkbooksInCache(submittedQuery, fingerprints)

@@ -128,6 +128,17 @@ const createWorkbookCacheDatabase = (configRoot) => {
     WHERE fingerprint = ?
   `);
 
+  const countWorkbooksStmt = db.prepare(`
+    SELECT COUNT(*) AS count
+    FROM workbook_cache
+  `);
+
+  const listWorkbookRecordsStmt = db.prepare(`
+    SELECT fingerprint, absolute_path
+    FROM workbook_cache
+    ORDER BY imported_at DESC, fingerprint
+  `);
+
   const insertWorkbookStmt = db.prepare(`
     INSERT INTO workbook_cache (
       fingerprint,
@@ -323,6 +334,42 @@ const createWorkbookCacheDatabase = (configRoot) => {
     }
   };
 
+  const deleteWorkbooks = (fingerprints) => {
+    const fingerprintList = listFingerprints(fingerprints);
+    if (fingerprintList.length === 0) {
+      return {
+        removedCount: 0,
+        remainingCount: countWorkbooksStmt.get().count ?? 0,
+      };
+    }
+
+    db.exec("BEGIN");
+
+    try {
+      let removedCount = 0;
+
+      for (const fingerprint of fingerprintList) {
+        const result = deleteWorkbookStmt.run(fingerprint);
+        removedCount += Number(result.changes ?? 0);
+      }
+
+      db.exec("COMMIT");
+
+      const remainingCount = Number(countWorkbooksStmt.get().count ?? 0);
+      if (remainingCount === 0 && removedCount > 0) {
+        db.exec("VACUUM");
+      }
+
+      return {
+        removedCount,
+        remainingCount,
+      };
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  };
+
   const getWorkbookSummary = (fingerprint, fallback) => {
     const record = selectWorkbookStmt.get(fingerprint);
     if (!record) {
@@ -456,10 +503,29 @@ const createWorkbookCacheDatabase = (configRoot) => {
     db.exec("PRAGMA optimize");
   };
 
+  const compact = () => {
+    db.exec("VACUUM");
+  };
+
+  const getStats = () => ({
+    workbookCount: Number(countWorkbooksStmt.get().count ?? 0),
+  });
+
+  const listWorkbookRecords = () =>
+    listWorkbookRecordsStmt.all().map((record) => ({
+      fingerprint: record.fingerprint,
+      absolutePath: record.absolute_path,
+    }));
+
   return {
     buildCandidates,
     cacheDbPath,
     checkpoint,
+    compact,
+    deleteWorkbooks,
+    getWorkbookSummary,
+    getStats,
+    listWorkbookRecords,
     rehydrateConfigWorkbooks,
     saveWorkbookSnapshot,
     searchWorkbooks,

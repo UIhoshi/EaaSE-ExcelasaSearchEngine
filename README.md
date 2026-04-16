@@ -6,7 +6,7 @@
 
 Turn local Excel workbooks into a searchable, desktop-friendly lookup engine.
 
-[![Version](https://img.shields.io/badge/version-2.0.0-111111?style=for-the-badge)](./package.json)
+[![Version](https://img.shields.io/badge/version-2.1.0-111111?style=for-the-badge)](./package.json)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-0f766e?style=for-the-badge)
 ![UI](https://img.shields.io/badge/ui-zh%20%7C%20en%20%7C%20ja-b91c1c?style=for-the-badge)
 ![Search](https://img.shields.io/badge/search-strict%20substring-1d4ed8?style=for-the-badge)
@@ -25,6 +25,12 @@ Turn local Excel workbooks into a searchable, desktop-friendly lookup engine.
 ## Why EaaSE
 
 EaaSE is a local, read-only Excel search tool for multi-file, multi-sheet, and wide-table lookup workflows. It is built for people who need desktop-style search across many workbooks without turning their files into a remote service or a browser-only toy.
+
+## Repository Scope
+
+This public repository is source-oriented. It focuses on the runnable EaaSE application, its packaging scripts, and the user-facing release assets.
+
+Internal project rules, local-only logic packages, runtime caches, and private working byproducts are intentionally excluded from public sync and release-source packaging.
 
 The collaboration model for this project is simple:
 - Codex handles implementation.
@@ -45,9 +51,15 @@ This naming should remain explicit in public-facing project materials:
 | Persistence | `config/cache.db` + `config/*.json` |
 | Archives | `.eaase.json` import/export |
 | UI languages | Chinese, English, Japanese |
-| Result handling | Web Worker search + virtualized rendering |
+| Result handling | Local API cache search with Web Worker fallback + virtualized rendering |
 
 ## Version Timeline
+
+### V2.1.0
+- Fixed stale workbook cache cleanup when importing `.eaase.json` project archives.
+- Fixed database cleanup after deleting workbooks from the file panel so removed files no longer linger in `cache.db`.
+- Added physical SQLite compaction after cache deletions so the database file itself reflects the reduced cache set.
+- Kept the existing desktop runtime chain while preparing a release set that includes source, portable packages, Linux package, and a direct Windows installer executable.
 
 ### V1.0.0
 - Established the original local Excel strict-search baseline.
@@ -67,7 +79,16 @@ This naming should remain explicit in public-facing project materials:
 - Added `.eaase.json` project archives for save, restore, backup, and migration.
 - Stabilized the desktop startup flow as `EaaSE.exe -> local Node.js service -> WebView2 desktop window -> React UI`.
 - Added folder import, file filtering, standard and expanded layouts, all-columns and labeled-columns modes, matched-sheet quick jump, and back-to-top navigation.
-- Improved large-result handling with Web Worker search and virtualized result rendering.
+- Improved large-result handling with local cache search, Web Worker fallback, and virtualized result rendering.
+
+## What Changed In V2.1.0
+
+| Area | Before | Now |
+| --- | --- | --- |
+| Config import cleanup | Importing `.eaase.json` could leave old workbook cache records behind | Import now prunes cache entries that are outside the imported archive set |
+| File-panel deletion | Removing a file from the panel deleted the visible item, but stale cache cleanup needed follow-up hardening | File-panel deletion and archive import now both clean cache records consistently |
+| SQLite file size | Deleted workbook data could leave `cache.db` file size looking unchanged | Cache deletions now trigger physical compaction so the DB file reflects the reduced dataset |
+| Windows release assets | Portable desktop package was available | Release set now keeps the portable package and also includes a direct Windows installer executable |
 
 ## What Changed In V2.0.0
 
@@ -78,7 +99,7 @@ This naming should remain explicit in public-facing project materials:
 | Project portability | Limited | `.eaase.json` archive import/export |
 | Windows UX | Browser-first tendency | Desktop-window startup through `EaaSE.exe` |
 | Navigation | Basic grouped result browsing | Folder import, file filter, quick jump, back-to-top |
-| Rendering | Smaller-scale result handling | Web Worker + virtualized result list |
+| Rendering | Smaller-scale result handling | API cache search + Worker fallback + virtualized result list |
 
 ## Core Capabilities
 
@@ -95,10 +116,17 @@ This naming should remain explicit in public-facing project materials:
 ## Data Model And Persistence
 
 - Default cache is automatically restored on startup for instant resume.
-- Workbook structure, sheet rows, and search-ready cache are stored in `config/cache.db`.
-- Project metadata and UI preferences are stored in `config/*.json`.
+- In local runtime mode, workbook structure, sheet rows, and search-ready cache are stored in `config/cache.db`.
+- In local runtime mode, project metadata and UI preferences are stored in `config/*.json`, while workbook bodies are normalized into the cache database.
 - Imported and exported project archives use `.eaase.json`.
+- In browser-only fallback mode, temporary project state may be stored in browser local storage because `config/` and local file APIs are unavailable.
 - EaaSE is local-only and read-only. It does not modify original Excel files.
+
+## Search Path
+
+- Primary path: search candidates and row hits are queried from the local API cache when the runtime service is available.
+- Fallback path: the frontend falls back to the Web Worker for browser-only quickstart mode or API failure cases.
+- Search semantics stay strict and remain compatible with `String.includes()`.
 
 ## UI Highlights
 
@@ -125,7 +153,7 @@ npm run dev
 npm run quickstart
 ```
 
-Quickstart mode runs the web UI only. If the local API is unavailable, file import falls back to the browser picker and local path actions are unavailable.
+Quickstart mode runs the web UI only. If the local API is unavailable, file import falls back to the browser picker, search falls back to the Web Worker, and local path actions are unavailable.
 
 ## Build And Release
 
@@ -137,9 +165,15 @@ npm run package:github-release
 
 The final release command rebuilds:
 - `github/source/`
-- `github/Excel Strict Searcher-2.0.0-windows-setup.zip`
-- `github/Excel Strict Searcher-2.0.0-windows-lightweight.zip`
-- `github/Excel Strict Searcher-2.0.0-linux.zip`
+- `github/Excel Strict Searcher-2.1.0-windows-setup.zip`
+- `github/Excel Strict Searcher-2.1.0-windows-lightweight.zip`
+- `github/Excel Strict Searcher-2.1.0-linux.zip`
+- `github/Excel Strict Searcher-2.1.0-windows-installer.exe`
+
+Windows package behavior is intentionally split:
+- `windows-setup.zip`: desktop application path centered on `EaaSE.exe` + local Node.js service + WebView2 window
+- `windows-lightweight.zip`: compatibility package that starts the local service and opens the UI in the system browser
+- `windows-installer.exe`: direct Windows installer executable for users who want setup-based installation while keeping the portable package line available
 
 ## Repository Layout
 

@@ -13,6 +13,7 @@ const artifactsRoot = path.join(projectRoot, "artifacts");
 const githubRoot = path.join(projectRoot, "github");
 const windowsPortableExe = path.join(artifactsRoot, "windows-portable-exe");
 const windowsPortableRuntime = path.join(artifactsRoot, "windows-portable-runtime");
+const windowsInstallerRelease = path.join(projectRoot, "windows-installer-release");
 const tempRoot = path.join(projectRoot, ".release-temp");
 
 const excludedSourceEntries = new Set([
@@ -21,6 +22,7 @@ const excludedSourceEntries = new Set([
   "github",
   "dist",
   "config",
+  "AgentLogic_V6",
   "EaaSE-sync",
   "handle_tool",
   ".git",
@@ -35,9 +37,11 @@ const excludedSourceFiles = new Set([
   "AGENTLOGIC_EAASE_MAPPING.md",
   "AI_SESSION_OPENING_TEMPLATE.md",
   "AI_SESSION_QUICKSTART.md",
+  "AgentLogic_V5.md",
   "BUILD_RELEASE_REQUIREMENTS.md",
   "handle.zip",
   "PLAN_ENHANCEMENT_V1.1.0.md",
+  "PROJECT_FACT_MAP.md",
   "REQUIREMENTS.md",
   "TECHNICAL_SPEC.md",
   "tsconfig.app.tsbuildinfo",
@@ -261,6 +265,12 @@ const main = async () => {
 `,
   );
   await zipWithPowerShell(lightweightStage, path.join(githubRoot, `Excel Strict Searcher-${version}-windows-lightweight.zip`));
+
+  await run("npm", ["run", "package:windows-installer"]);
+
+  const installerExeSource = path.join(windowsInstallerRelease, "EaaSE-Setup.exe");
+  const installerExeTarget = path.join(githubRoot, `Excel Strict Searcher-${version}-windows-installer.exe`);
+  await fs.copyFile(installerExeSource, installerExeTarget);
 
   const linuxRoot = path.join(tempRoot, "linux");
   await ensureDir(linuxRoot);

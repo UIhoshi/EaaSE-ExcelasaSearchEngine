@@ -1,6 +1,6 @@
 import type { CachedWorkbook, ConfigWorkbookRecord } from "../types";
 
-export const cloneWorkbookForConfig = (workbook: CachedWorkbook): CachedWorkbook => ({
+export const cloneWorkbookSnapshot = (workbook: CachedWorkbook): CachedWorkbook => ({
   ...workbook,
   sheets: workbook.sheets.map((sheet) => ({
     ...sheet,
@@ -12,8 +12,18 @@ export const cloneWorkbookForConfig = (workbook: CachedWorkbook): CachedWorkbook
   uniqueValues: [...workbook.uniqueValues],
 });
 
-export const buildWorkbookCachePayload = (workbooks: CachedWorkbook[]) =>
-  workbooks.map((workbook) => cloneWorkbookForConfig(workbook));
+const toWorkbookRecord = (workbook: CachedWorkbook): ConfigWorkbookRecord => ({
+  fingerprint: workbook.fingerprint,
+  absolutePath: workbook.absolutePath,
+  headerDepth: workbook.headerDepth,
+  isFavorite: workbook.isFavorite,
+  importedAt: workbook.importedAt,
+});
+
+const shouldPersistSnapshot = (workbook: CachedWorkbook) => workbook.absolutePath === workbook.fileName;
+
+export const buildPersistedWorkbookPayload = (workbooks: CachedWorkbook[]) =>
+  workbooks.map((workbook) => (shouldPersistSnapshot(workbook) ? cloneWorkbookSnapshot(workbook) : toWorkbookRecord(workbook)));
 
 export const isWorkbookCacheSnapshot = (
   workbook: CachedWorkbook | ConfigWorkbookRecord,
