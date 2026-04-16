@@ -1,0 +1,38 @@
+{
+  "name": "AgentLogic_V6",
+  "source_project": "C:\\Users\\XU RONG\\Downloads\\claude-code-main\\claude-code-main",
+  "generated_from": [
+    "AgentLogic_V6.md",
+    "README.md",
+    "CLAUDE.md",
+    "docs/",
+    "src/"
+  ],
+  "focus": [
+    "master_logic",
+    "architecture",
+    "agentic_loop",
+    "tools",
+    "permissions",
+    "safety",
+    "extensibility",
+    "commands",
+    "source_index",
+    "raw_tools",
+    "raw_tooling",
+    "raw_permissions",
+    "raw_extensions",
+    "raw_commands",
+    "capability_matrix",
+    "packaging_policy",
+    "cross_directory_map"
+  ],
+  "notes": [
+    "This package is a structured logic package, not a raw source backup.",
+    "When logic gets refined, update AgentLogic_V6.md first and then resync the package.",
+    "Tool source is intentionally preserved as a raw layer in this package.",
+    "Command source is also preserved as a raw layer in this version.",
+    "Projects using this package should back logic-entry reminders with a repository-level enforcement script such as node scripts/check-logic-entry.js."
+  ],
+  "version": "V6"
+}
