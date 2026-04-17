@@ -187,6 +187,13 @@ Release assets should be obtained from the repository Releases page when availab
 
 - `https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine/releases`
 
+## Version Evolution
+
+- `v2.1.0`: hardened cache cleanup, added SQLite compaction, and stabilized release packaging outputs.
+- `v2.0.0`: expanded to 1000-file workspaces, added local persistence, and introduced `.eaase.json` project archives.
+- `v1.1.0`: moved toward a local API plus desktop-oriented runtime workflow.
+- `v1.0.0`: established the original strict Excel search baseline and the first multilingual README structure.
+
 ## Contributing / Support
 
 - Open an Issue for bugs, search-model problems, or feature requests.

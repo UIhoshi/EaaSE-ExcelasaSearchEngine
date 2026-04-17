@@ -187,6 +187,13 @@ npm run package:github-release
 
 - `https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine/releases`
 
+## 版本演进
+
+- `v2.1.0`：加固缓存清理，补上 SQLite 物理压缩回收，并稳定正式发布打包输出。
+- `v2.0.0`：扩展到 1000 文件工作区，引入本地持久化，并加入 `.eaase.json` 项目归档。
+- `v1.1.0`：开始转向本地 API + 桌面优先运行链路。
+- `v1.0.0`：建立最初的严格 Excel 搜索基线和第一版多语言 README 结构。
+
 ## 贡献 / 支持
 
 - 如果你发现搜索模型、缓存流程或工作区行为问题，欢迎提交 Issue。
