@@ -2,203 +2,172 @@
 
 # EaaSE
 
-### Excel as a Search Engine
+**Turn local Excel workbooks into a desktop-friendly search engine without sending files to a remote service**
 
-Turn local Excel workbooks into a searchable, desktop-friendly lookup engine.
-
-[![Version](https://img.shields.io/badge/version-2.1.0-111111?style=for-the-badge)](./package.json)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-0f766e?style=for-the-badge)
-![UI](https://img.shields.io/badge/ui-zh%20%7C%20en%20%7C%20ja-b91c1c?style=for-the-badge)
-![Search](https://img.shields.io/badge/search-strict%20substring-1d4ed8?style=for-the-badge)
-![Runtime](https://img.shields.io/badge/runtime-local--first-7c3aed?style=for-the-badge)
-![Built With](https://img.shields.io/badge/built%20with-Codex%20%2B%20Gemini-f59e0b?style=for-the-badge)
-
-[English](./README.md) | [中文](./README.zh-CN.md) | [日本語](./README.ja.md)
+[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md)
 
 </div>
 
-> Two steps only:
->
-> 1. Import
-> 2. Choose Excel
+<div align="center">
 
-## Why EaaSE
+![Version](https://img.shields.io/badge/version-2.1.0-111111?style=for-the-badge)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-0f766e?style=for-the-badge)
+![UI](https://img.shields.io/badge/ui-zh%20%7C%20en%20%7C%20ja-b91c1c?style=for-the-badge)
+![Runtime](https://img.shields.io/badge/runtime-local--first-7c3aed?style=for-the-badge)
+![Search](https://img.shields.io/badge/search-strict%20substring-1d4ed8?style=for-the-badge)
 
-EaaSE is a local, read-only Excel search tool for multi-file, multi-sheet, and wide-table lookup workflows. It is built for people who need desktop-style search across many workbooks without turning their files into a remote service or a browser-only toy.
+</div>
 
-## Repository Scope
+## Product Proof
 
-This public repository is source-oriented. It focuses on the runnable EaaSE application, its packaging scripts, and the user-facing release assets.
+EaaSE is built for one very specific job: searching across many local Excel workbooks quickly, safely, and repeatedly without turning Excel data into a web service or a database project.
 
-Internal project rules, local-only logic packages, runtime caches, and private working byproducts are intentionally excluded from public sync and release-source packaging.
+The current `2.1.0` baseline is centered on:
 
-## Logic Entry
+- local-first workbook search across `.xls`, `.xlsx`, `.xlsm`, and `.csv`
+- desktop-oriented runtime flow instead of a browser-only toy workflow
+- stable cache cleanup after archive import and workbook deletion
+- large-file handling up to 1000 simultaneously loaded files
 
-- Project-side logic entry: `AgentLogic/00_README.md`
-- Main logic framework: `AgentLogic/AgentLogic_V6.md`
-- Before structural changes, also read `PROJECT_FACT_MAP.md`
-- Repository check command: `npm run check:logic`
-- Repository doc check command: `npm run check:docs`
+## ✨ What does this solve?
 
-The collaboration model for this project is simple:
+- **Too many Excel files to search manually**: load many workbooks into one searchable workspace instead of opening files one by one.
+- **Desktop lookup work is slow and error-prone**: keep search local, read-only, and optimized for repeated lookup workflows.
+- **Wide tables are painful to inspect**: support grouped results, label-column filtering, multi-row headers, and layout switching.
+- **Users do not want a database migration project**: import files directly and keep the original Excel files untouched.
+
+## Quick Start
+
+1. Install dependencies with `npm install`.
+2. Run `npm run dev` for the desktop-oriented local runtime workflow.
+3. Import one or more Excel files, or load a whole folder.
+4. Search across files and sheets from the same workspace.
+
+> Important:
+> EaaSE is local-only and read-only. It does not modify the original Excel files.
+
+If you want the web-only fallback path:
+
+```bash
+npm run quickstart
+```
+
+In quickstart mode, file import falls back to the browser picker, search falls back to the Web Worker, and local path actions are unavailable.
+
+## At a Glance
+
+<div align="center">
+
+| Topic | Summary |
+|-------|---------|
+| Version | `2.1.0` |
+| Runtime | local Node.js service + React UI + desktop shell |
+| File scale | up to 1000 simultaneously loaded files |
+| Formats | `.xls`, `.xlsx`, `.xlsm`, `.csv` |
+| Persistence | `config/cache.db` and `config/*.json` |
+| Archive format | `.eaase.json` |
+| UI languages | Chinese, English, Japanese |
+| Documentation | `AGENTS.md`, `PROJECT_FACT_MAP.md`, `AgentLogic/` |
+
+</div>
+
+## ✨ Core Features
+
+- Search across many Excel workbooks and many sheets in one workspace.
+- Group results by `file -> sheet`.
+- Support folder import, file filtering, label-column filtering, and layout switching.
+- Preserve local runtime persistence through `config/cache.db` and `config/*.json`.
+- Import and export workspace archives as `.eaase.json`.
+- Fall back to Web Worker search when the local API path is unavailable.
+
+## Documentation And Logic Entry
+
+If you are maintaining or extending the project, start here:
+
+- `AGENTS.md`
+- `PROJECT_FACT_MAP.md`
+- `AgentLogic/00_README.md`
+- `AgentLogic/AgentLogic_V6.md`
+
+Repository checks:
+
+```bash
+npm run check:logic
+npm run check:docs
+```
+
+Collaboration model for this project:
+
 - Codex handles implementation.
 - Gemini handles review and planning.
 
-This naming should remain explicit in public-facing project materials:
-- Codex is the engineering and implementation side.
-- Gemini is the planning and review side.
+## Technical Implementation
 
-## At A Glance
+**Tech stack**
 
-| Topic | Summary |
-| --- | --- |
-| File scale | Up to 1000 simultaneously loaded files |
-| Formats | `.xls`, `.xlsx`, `.xlsm`, `.csv` |
-| Search model | Strict substring matching with `String.includes()` |
-| Runtime | Local Node.js service + React UI + Windows WebView2 desktop shell |
-| Persistence | `config/cache.db` + `config/*.json` |
-| Archives | `.eaase.json` import/export |
-| UI languages | Chinese, English, Japanese |
-| Result handling | Local API cache search with Web Worker fallback + virtualized rendering |
+- React
+- TypeScript
+- Vite
+- local Node.js runtime service
+- Excel parsing through `xlsx`
 
-## Version Timeline
+**Architecture highlights**
 
-### V2.1.0
-- Fixed stale workbook cache cleanup when importing `.eaase.json` project archives.
-- Fixed database cleanup after deleting workbooks from the file panel so removed files no longer linger in `cache.db`.
-- Added physical SQLite compaction after cache deletions so the database file itself reflects the reduced cache set.
-- Kept the existing desktop runtime chain while preparing a release set that includes source, portable packages, Linux package, and a direct Windows installer executable.
+- local-first desktop workflow instead of a remote hosted service
+- primary search through local API cache when available
+- Web Worker fallback path for browser-only quick start
+- virtualized rendering for large result sets
+- read-only handling of source Excel files
 
-### V1.0.0
-- Established the original local Excel strict-search baseline.
-- Focused on source-oriented release and multilingual README structure.
-- Supported up to 20 cached files at the same time.
-- Shipped the core grouped search experience by `file -> sheet`.
+**Repository layout**
 
-### V1.1.0
-- Moved from a browser-first tool toward a hybrid local runtime architecture.
-- Added local API support for absolute paths, opening containing folders, and config import/export.
-- Established the desktop packaging direction with `EaaSE.exe`.
-- Introduced the current release chain for Windows setup, Windows lightweight, and Linux packages.
-
-### V2.0.0
-- Expanded the active workspace to up to 1000 simultaneously loaded Excel files.
-- Replaced browser-only persistence with local runtime persistence using `config/cache.db` and `config/*.json`.
-- Added `.eaase.json` project archives for save, restore, backup, and migration.
-- Stabilized the desktop startup flow as `EaaSE.exe -> local Node.js service -> WebView2 desktop window -> React UI`.
-- Added folder import, file filtering, standard and expanded layouts, all-columns and labeled-columns modes, matched-sheet quick jump, and back-to-top navigation.
-- Improved large-result handling with local cache search, Web Worker fallback, and virtualized result rendering.
-
-## What Changed In V2.1.0
-
-| Area | Before | Now |
-| --- | --- | --- |
-| Config import cleanup | Importing `.eaase.json` could leave old workbook cache records behind | Import now prunes cache entries that are outside the imported archive set |
-| File-panel deletion | Removing a file from the panel deleted the visible item, but stale cache cleanup needed follow-up hardening | File-panel deletion and archive import now both clean cache records consistently |
-| SQLite file size | Deleted workbook data could leave `cache.db` file size looking unchanged | Cache deletions now trigger physical compaction so the DB file reflects the reduced dataset |
-| Windows release assets | Portable desktop package was available | Release set now keeps the portable package and also includes a direct Windows installer executable |
-
-## What Changed In V2.0.0
-
-| Area | Before | Now |
-| --- | --- | --- |
-| File capacity | 20-file scale in V1.0.0 | Up to 1000 loaded files |
-| Persistence | Browser-oriented session approach | Local `cache.db` and `config/*.json` |
-| Project portability | Limited | `.eaase.json` archive import/export |
-| Windows UX | Browser-first tendency | Desktop-window startup through `EaaSE.exe` |
-| Navigation | Basic grouped result browsing | Folder import, file filter, quick jump, back-to-top |
-| Rendering | Smaller-scale result handling | API cache search + Worker fallback + virtualized result list |
-
-## Core Capabilities
-
-- Import single files or entire folders.
-- Search across `.xls`, `.xlsx`, `.xlsm`, and `.csv`.
-- Group search results by `file -> sheet`.
-- Support multi-row headers, merged cells, Excel column letters, and label-column filtering.
-- Copy cells and rows with keyword highlighting.
-- Switch between standard and expanded layouts.
-- Switch between all-columns and labeled-columns display modes.
-- Open the containing folder when local path information is available.
-- Preserve runtime diagnostics in `config/startup.log`, `config/server.log`, and `config/runtime-metrics.log`.
-
-## Data Model And Persistence
-
-- Default cache is automatically restored on startup for instant resume.
-- In local runtime mode, workbook structure, sheet rows, and search-ready cache are stored in `config/cache.db`.
-- In local runtime mode, project metadata and UI preferences are stored in `config/*.json`, while workbook bodies are normalized into the cache database.
-- Imported and exported project archives use `.eaase.json`.
-- In browser-only fallback mode, temporary project state may be stored in browser local storage because `config/` and local file APIs are unavailable.
-- EaaSE is local-only and read-only. It does not modify original Excel files.
-
-## Search Path
-
-- Primary path: search candidates and row hits are queried from the local API cache when the runtime service is available.
-- Fallback path: the frontend falls back to the Web Worker for browser-only quickstart mode or API failure cases.
-- Search semantics stay strict and remain compatible with `String.includes()`.
-
-## UI Highlights
-
-- Folder import for batch workbook intake
-- File filter for narrowing the active workspace
-- Standard and expanded layout modes
-- All-columns and labeled-columns display modes
-- Matched-sheet quick jump
-- Back-to-top navigation
-- Chinese, English, and Japanese UI switching
+| Path | Purpose |
+|------|---------|
+| `src/` | React UI, hooks, workers, styles, and frontend logic |
+| `scripts/` | local runtime server and packaging scripts |
+| `config/` | runtime cache, archives, and logs when running locally |
+| `AgentLogic/` | repository logic-entry and collaboration rules |
+| `README.zh-CN.md` / `README.ja.md` | multilingual README pages |
 
 ## Development
 
 ```bash
 npm install
 npm run dev
-```
-
-`npm run dev` starts both the local API service and the Vite dev server.
-
-## Quick Web Test
-
-```bash
-npm run quickstart
-```
-
-Quickstart mode runs the web UI only. If the local API is unavailable, file import falls back to the browser picker, search falls back to the Web Worker, and local path actions are unavailable.
-
-## Build And Release
-
-```bash
 npm run build
-npm run preview
+npm run verify
+```
+
+Release packaging:
+
+```bash
 npm run package:github-release
 ```
 
-The final release command rebuilds:
-- `github/source/`
-- `github/Excel Strict Searcher-2.1.0-windows-setup.zip`
-- `github/Excel Strict Searcher-2.1.0-windows-lightweight.zip`
-- `github/Excel Strict Searcher-2.1.0-linux.zip`
-- `github/Excel Strict Searcher-2.1.0-windows-installer.exe`
+## Known Limitations
 
-Windows package behavior is intentionally split:
-- `windows-setup.zip`: desktop application path centered on `EaaSE.exe` + local Node.js service + WebView2 window
-- `windows-lightweight.zip`: compatibility package that starts the local service and opens the UI in the system browser
-- `windows-installer.exe`: direct Windows installer executable for users who want setup-based installation while keeping the portable package line available
+- This repository currently does not ship screenshot assets in the README.
+- Quickstart browser mode is a fallback path, not the full local-runtime experience.
+- Local path actions depend on the local runtime service being available.
 
-## Repository Layout
+## Release Notes
 
-- `src/`: React UI, hooks, worker, styles, and frontend logic
-- `scripts/`: local runtime server and packaging scripts
-- `config/`: runtime cache, archives, and logs when running locally
-- `README.md`: English landing page
-- `README.zh-CN.md`: Chinese landing page
-- `README.ja.md`: Japanese landing page
-- `package.json`: dependency and script entry point
+Current focus in `2.1.0`:
 
-## GitHub Sync Rule
+- cache cleanup hardening after `.eaase.json` import
+- cache cleanup after workbook deletion
+- physical SQLite compaction after cache deletion
+- formal release packaging for portable and installer lines
 
-- GitHub repository:
-  - `https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine`
-- Sync source-oriented files only.
-- Push source code to the repository, but upload installers and package archives as GitHub release assets instead of committing them into the source tree.
-- Create a new tag and a new release for each formal published version. Do not delete or overwrite older releases unless explicitly required.
-- Do not sync local runtime output, `node_modules`, `dist`, temporary packaging folders, logs, or other build byproducts.
-- Do not sync `AgentLogic`, local-only rule documents, private planning notes, runtime caches, or other collaboration byproducts.
+Release assets should be obtained from the repository Releases page when available:
+
+- `https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine/releases`
+
+## Contributing / Support
+
+- Open an Issue for bugs, search-model problems, or feature requests.
+- Use PRs for targeted improvements once the project docs and logic entry have been read.
+
+## License
+
+No license file is currently declared in this repository.
