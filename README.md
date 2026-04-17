@@ -38,21 +38,45 @@ The current `2.1.0` baseline is centered on:
 
 ## Quick Start
 
-1. Install dependencies with `npm install`.
-2. Run `npm run dev` for the desktop-oriented local runtime workflow.
+### Option 1: Use GitHub release assets
+
+1. Open the Releases page:
+   `https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine/releases`
+2. Download the package that matches your platform or preferred delivery style.
+3. Launch the application package and import one or more Excel files, or a whole folder.
+4. Search across files and sheets from the same workspace.
+
+### Option 2: Run the local desktop-oriented workflow from source
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Start the local runtime workflow:
+
+```bash
+npm run dev
+```
+
 3. Import one or more Excel files, or load a whole folder.
 4. Search across files and sheets from the same workspace.
 
-> Important:
-> EaaSE is local-only and read-only. It does not modify the original Excel files.
-
-If you want the web-only fallback path:
+### Option 3: Use the web-only fallback path
 
 ```bash
 npm run quickstart
 ```
 
-In quickstart mode, file import falls back to the browser picker, search falls back to the Web Worker, and local path actions are unavailable.
+In quickstart mode:
+
+- file import falls back to the browser picker
+- search falls back to the Web Worker
+- local path actions are unavailable
+
+> Important:
+> EaaSE is local-only and read-only. It does not modify the original Excel files.
 
 ## At a Glance
 

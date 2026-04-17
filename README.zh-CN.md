@@ -38,21 +38,45 @@ EaaSE 专注解决一个非常具体的问题：在本地、只读、可重复�
 
 ## 快速开始
 
-1. 运行 `npm install` 安装依赖。
-2. 运行 `npm run dev` 启动桌面优先的本地运行链路。
+### 方式 1：使用 GitHub Releases 里的发布资产
+
+1. 打开 Releases 页面：
+   `https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine/releases`
+2. 下载适合你平台或使用方式的安装包 / 压缩包。
+3. 启动程序后导入一个或多个 Excel 文件，或直接导入整个文件夹。
+4. 在同一个工作区中跨文件、跨 Sheet 搜索。
+
+### 方式 2：从源码运行本地桌面链路
+
+1. 安装依赖：
+
+```bash
+npm install
+```
+
+2. 启动本地运行链路：
+
+```bash
+npm run dev
+```
+
 3. 导入一个或多个 Excel 文件，或直接导入整个文件夹。
 4. 在同一个工作区中跨文件、跨 Sheet 搜索。
 
-> 重要提示：
-> EaaSE 是本地、只读工具，不会修改原始 Excel 文件。
-
-如果你只想走网页快速模式：
+### 方式 3：使用网页回退模式
 
 ```bash
 npm run quickstart
 ```
 
-在 quickstart 模式下，文件导入会回退到浏览器文件选择，搜索会回退到 Web Worker，本地路径相关操作不可用。
+在 quickstart 模式下：
+
+- 文件导入会回退到浏览器文件选择
+- 搜索会回退到 Web Worker
+- 本地路径相关操作不可用
+
+> 重要提示：
+> EaaSE 是本地、只读工具，不会修改原始 Excel 文件。
 
 ## 一眼看懂
 
