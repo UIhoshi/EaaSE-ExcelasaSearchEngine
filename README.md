@@ -3,7 +3,11 @@ MANDATORY LOGIC GATE
 Before making changes here, read AGENTS.md and README.md first.
 -->
 
-# 🌌 EaaSE: Excel as a Search Engine (V2.1.0)
+<div align="center">
+
+# EaaSE: Excel as a Search Engine (V2.1.0)
+
+**[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md)**
 
 [![Version](https://img.shields.io/badge/version-2.1.0-111111?style=flat-square)](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-0f766e?style=flat-square)](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine)
@@ -11,9 +15,9 @@ Before making changes here, read AGENTS.md and README.md first.
 [![Runtime](https://img.shields.io/badge/runtime-local--first-7c3aed?style=flat-square)](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine)
 [![Search](https://img.shields.io/badge/search-strict%20substring-1d4ed8?style=flat-square)](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine)
 
-**EaaSE** is a local-first desktop application designed to turn hundreds of Excel workbooks into an instant, searchable index database. It processes everything locally on your machine, requiring no database migrations or cloud service uploads.
+</div>
 
-**[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md)**
+**EaaSE** is a local-first desktop application designed to turn hundreds of Excel workbooks into an instant, searchable index database. It processes everything locally on your machine, requiring no database migrations or cloud service uploads.
 
 > [!IMPORTANT]
 > **Read-Only Safety Guarantee**: EaaSE is strictly read-only. It parses and caches sheet content into local DB configurations without ever modifying or writing back to your original Excel files.
@@ -35,7 +39,7 @@ Before making changes here, read AGENTS.md and README.md first.
 
 | Launch Option | Steps to Execute | Available Features |
 | :--- | :--- | :--- |
-| **Option 1: Release Package** | 1. Go to [Releases](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine/releases)<br>2. Download & run the installer<br>3. Drag and drop folders to search | **Full Desktop Experience** (Local path actions,SQLite persistence) |
+| **Option 1: Release Package** | 1. Go to [Releases](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine/releases)<br>2. Download & run the installer<br>3. Drag and drop folders to search | **Full Desktop Experience** (Local path actions, SQLite persistence) |
 | **Option 2: Run From Source** | `npm install`<br>`npm run dev`<br>Open `localhost:5173` | **Full Desktop Experience** (Developer mode) |
 | **Option 3: Web Fallback** | `npm run quickstart` | **Web-Only Sandbox** (Web Worker search, no local SQLite, browser file picker only) |
 
@@ -59,7 +63,7 @@ Before making changes here, read AGENTS.md and README.md first.
 * **Core Components**: React + Vite + TypeScript.
 * **Database Cache**: SQLite database wrapper (`cache.db`) enabling rapid strict substring searches.
 * **Virtualization**: Uses virtualized lists for rendering large result sets without UI freezing.
-* **Parsing Engine**: Fast spreadsheet data ingestion via `xlsx` libraries.
+* **Parsing Engine**: Fast spreadsheet data Ingestion via `xlsx` libraries.
 
 ---
 
@@ -67,7 +71,7 @@ Before making changes here, read AGENTS.md and README.md first.
 
 * **Multi-Workbook Indexing**: Ingest directories, files, or specific sheets for unified lookups.
 * **Structured Results**: Group outputs by `File -> Sheet` to trace source cells.
-* **Intelligent Filters**: Search and isolate columns, handle multi-row headers, and toggles layout views.
+* **Intelligent Filters**: Search and isolate columns, handle multi-row headers, and toggle layout views.
 * **Local Persistence**: Workspace states are exported/imported seamlessly using `.eaase.json` archives.
 * **Worker Ingestion**: Automatically falls back to client-side Web Worker searching if the local server drops.
 

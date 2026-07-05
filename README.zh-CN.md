@@ -3,7 +3,11 @@ MANDATORY LOGIC GATE
 Before making changes here, read AGENTS.md and README.md first.
 -->
 
-# 🌌 EaaSE: Excel as a Search Engine (V2.1.0)
+<div align="center">
+
+# EaaSE: Excel as a Search Engine (V2.1.0)
+
+**[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md)**
 
 [![Version](https://img.shields.io/badge/version-2.1.0-111111?style=flat-square)](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-0f766e?style=flat-square)](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine)
@@ -11,9 +15,9 @@ Before making changes here, read AGENTS.md and README.md first.
 [![Runtime](https://img.shields.io/badge/runtime-local--first-7c3aed?style=flat-square)](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine)
 [![Search](https://img.shields.io/badge/search-strict%20substring-1d4ed8?style=flat-square)](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine)
 
-**EaaSE** 是一款本地优先的桌面应用程序，旨在将成百上千个本地 Excel 工作簿秒变即时搜索数据库。所有数据均在您的本地设备上进行解析，无需上传远程服务，也无需进行任何数据库迁移配置。
+</div>
 
-**[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md)**
+**EaaSE** 是一款本地优先的桌面应用程序，旨在将成百上千个本地 Excel 工作簿秒变即时搜索数据库。所有数据均在您的本地设备上进行解析，无需上传远程服务，也无需进行任何数据库迁移配置。
 
 > [!IMPORTANT]
 > **只读安全保障**：EaaSE 对原始 Excel 文件执行严格的只读操作。它只解析表格内容并写入本地的轻量缓存，绝不会对您的原始 Excel 进行任何写入或修改。
@@ -113,7 +117,7 @@ npm run package:github-release
 | 版本号 | 状态 | 核心优化点 |
 | :--- | :--- | :--- |
 | **v2.1.0** | 当前稳定版 | 加入 SQLite 物理数据库的删除压缩收缩机制，加固文件夹删除后缓存同步清理，稳定发布包编译。 |
-| **v2.0.0** | 历史版本 | 扩容至 1000 级大工作区，引入本地持久化 SQLite db 存储，添加 `.eaase.json` 归档。 |
+| **v2.0.0** | 历史版本 | 扩展到 1000 级大工作区，引入本地持久化 SQLite db 存储，添加 `.eaase.json` 归档。 |
 | **v1.1.0** | 历史版本 | 首次转向本地 Node.js 运行时服务 + 壳层架构。 |
 | **v1.0.0** | 历史版本 | 初始 Excel 搜索模型，多语言 README 构建。 |
 
@@ -123,4 +127,4 @@ npm run package:github-release
 
 * 发现搜索定位或缓存同步问题，请提交 GitHub Issue。
 * 发起 PR 时，必须保证已通过 `check:logic` 的本地拦截检验。
-* 仓库中当前未声明单独的外部开源许可证。
+* 仓库中当前未声明单独的开源许可证。
