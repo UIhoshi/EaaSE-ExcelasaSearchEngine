@@ -1,204 +1,126 @@
-<div align="center">
+<!--
+MANDATORY LOGIC GATE
+Before making changes here, read AGENTS.md and README.md first.
+-->
 
-# EaaSE
+# 🌌 EaaSE: Excel as a Search Engine (V2.1.0)
 
-**把本地 Excel 工作簿变成桌面级搜索引擎，无需把文件上传到远程服务**
+[![Version](https://img.shields.io/badge/version-2.1.0-111111?style=flat-square)](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-0f766e?style=flat-square)](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine)
+[![UI](https://img.shields.io/badge/ui-zh%20%7C%20en%20%7C%20ja-b91c1c?style=flat-square)](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine)
+[![Runtime](https://img.shields.io/badge/runtime-local--first-7c3aed?style=flat-square)](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine)
+[![Search](https://img.shields.io/badge/search-strict%20substring-1d4ed8?style=flat-square)](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine)
 
-[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md)
+**EaaSE** 是一款本地优先的桌面应用程序，旨在将成百上千个本地 Excel 工作簿秒变即时搜索数据库。所有数据均在您的本地设备上进行解析，无需上传远程服务，也无需进行任何数据库迁移配置。
 
-</div>
+**[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md)**
 
-<div align="center">
+> [!IMPORTANT]
+> **只读安全保障**：EaaSE 对原始 Excel 文件执行严格的只读操作。它只解析表格内容并写入本地的轻量缓存，绝不会对您的原始 Excel 进行任何写入或修改。
 
-![版本](https://img.shields.io/badge/version-2.1.0-111111?style=for-the-badge)
-![平台](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-0f766e?style=for-the-badge)
-![界面](https://img.shields.io/badge/ui-zh%20%7C%20en%20%7C%20ja-b91c1c?style=for-the-badge)
-![运行方式](https://img.shields.io/badge/runtime-local--first-7c3aed?style=for-the-badge)
-![搜索模型](https://img.shields.io/badge/search-strict%20substring-1d4ed8?style=for-the-badge)
+---
 
-</div>
+## 🎯 产品定位
 
-## 产品说明
+| 目标场景 | EaaSE 解决方案 |
+| :--- | :--- |
+| **多文件人工查找慢** | 支持将多达 1000 个 `.xls`、`.xlsx`、`.xlsm`、`.csv` 文件一次性导入，在同一个工作区统一检索。 |
+| **宽表及复杂结构阅读难** | 结构化的搜索界面，支持按文件/Sheet 分组展示结果、列过滤、多行表头处理和布局视图切换。 |
+| **建库维护成本高** | 无需部署大型数据库，直接导入表格即可，EaaSE 自动在后台进行文件状态匹配与缓存更新。 |
+| **离线桌面化工作流** | 本地 Node.js 后台服务 + React 前端壳层，提供优于浏览器单机网页版的强持久化体验。 |
 
-EaaSE 专注解决一个非常具体的问题：在本地、只读、可重复的工作流里，快速搜索大量 Excel 工作簿，而不是把 Excel 数据改造成在线系统或数据库项目。
+---
 
-当前 `2.1.0` 版本重点在于：
+## 🚀 快速开始
 
-- 面向 `.xls`、`.xlsx`、`.xlsm`、`.csv` 的本地优先搜索
-- 更接近桌面应用的运行链路，而不是浏览器玩具方案
-- 导入归档和删除工作簿后的缓存清理稳定性
-- 支持最多 1000 个同时加载文件的大规模工作区
+| 启动方式 | 操作步骤 | 具备功能 |
+| :--- | :--- | :--- |
+| **方式 1：Releases 发布包** | 1. 打开 [Releases 页面](https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine/releases)<br>2. 下载适合您平台的压缩包或安装程序<br>3. 启动并拖入文件夹即可使用 | **完整桌面体验** (支持本地路径打开、SQLite 强缓存、高速度检索) |
+| **方式 2：从源码运行** | 执行 `npm install`<br>执行 `npm run dev`<br>访问 `localhost:5173` | **完整桌面体验** (开发者调试模式) |
+| **方式 3：网页回退版** | 执行 `npm run quickstart` | **纯浏览器沙箱** (使用 Web Worker 搜索，无法读取本地 SQLite 缓存，仅支持网页端上传) |
 
-## ✨ 它能帮你解决什么？
+---
 
-- **Excel 文件太多，人工查找太慢**：把多个工作簿放进同一个搜索工作区，不用一份一份打开。
-- **桌面查找流程容易出错**：搜索、缓存和配置都保留在本地，适合反复检索的场景。
-- **宽表格难以阅读和定位**：支持按 `文件 -> Sheet` 分组、标签列过滤、多行表头和布局切换。
-- **不想为查 Excel 另起数据库项目**：直接导入文件即可，原始 Excel 文件保持不变。
+## 🧱 架构设计与仓库目录导航
 
-## 快速开始
+> [!NOTE]
+> **AI 维护门禁规范**：凡是维护本项目的 AI 智能体，**必须**遵循 `AgentLogic/` 中的自进化核心规范，并在修改代码前执行 `check:logic` 自检。
 
-### 方式 1：使用 GitHub Releases 里的发布资产
+### 仓库目录结构
 
-1. 打开 Releases 页面：
-   `https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine/releases`
-2. 下载适合你平台或使用方式的安装包 / 压缩包。
-3. 启动程序后导入一个或多个 Excel 文件，或直接导入整个文件夹。
-4. 在同一个工作区中跨文件、跨 Sheet 搜索。
+| 目录与文件 | 核心用途 |
+| :--- | :--- |
+| `src/` | React 前端界面、自定义 Hooks、Web Workers 以及样式代码 |
+| `scripts/` | 本地运行时 Node.js 服务端逻辑与 Releases 发布打包代码 |
+| `config/` | 本地生成的 SQLite `cache.db` 缓存文件、工作区归档及运行日志 |
+| `AgentLogic/` | 智能体协作规约、主版本说明与拦截门禁 |
 
-### 方式 2：从源码运行本地桌面链路
+### 技术栈与性能亮点
+* **前端框架**：React + Vite + TypeScript 编译环境。
+* **数据缓存**：基于 SQLite 本地数据库构建的索引引擎，支持快速严格子串（strict substring）匹配。
+* **渲染优化**：采用虚拟化列表（Virtualized List）渲染海量搜索结果，防止界面卡死。
+* **表格处理**：利用 `xlsx` 库实现超快速的 Sheet 解析和数据结构读取。
 
-1. 安装依赖：
+---
+
+## ⚡ 核心功能与特性
+
+* **多工作区检索**：跨文件、跨 Sheet 的聚合搜索，可直接加载整个目录。
+* **分组追踪**：结果自动按 `文件路径 ➔ 工作表名称` 汇总，快速定位单元格。
+* **视图切换**：支持隐藏空列、标签过滤、多行表头自适应布局。
+* **归档导入导出**：可将当前工作区的文件关系和搜索索引导出为单个 `.eaase.json` 备份文件。
+* **多模式回退**：若 Node.js 后台服务异常，前台自动无缝回退到浏览器 worker 引擎执行匹配。
+
+---
+
+## 🛠️ 本地开发与打包编译
+
+使用 npm 脚本管理、测试及构建项目：
 
 ```bash
+# 安装项目依赖
 npm install
-```
 
-2. 启动本地运行链路：
-
-```bash
+# 运行 Vite 调试服务
 npm run dev
-```
 
-3. 导入一个或多个 Excel 文件，或直接导入整个文件夹。
-4. 在同一个工作区中跨文件、跨 Sheet 搜索。
+# 编译前端代码
+npm run build
 
-### 方式 3：使用网页回退模式
+# 运行本地功能校验测试
+npm run verify
 
-```bash
-npm run quickstart
-```
-
-在 quickstart 模式下：
-
-- 文件导入会回退到浏览器文件选择
-- 搜索会回退到 Web Worker
-- 本地路径相关操作不可用
-
-> 重要提示：
-> EaaSE 是本地、只读工具，不会修改原始 Excel 文件。
-
-## 一眼看懂
-
-<div align="center">
-
-| 项目 | 说明 |
-|------|------|
-| 版本 | `2.1.0` |
-| 运行形态 | 本地 Node.js 服务 + React UI + 桌面壳层 |
-| 文件规模 | 最多 1000 个同时加载文件 |
-| 支持格式 | `.xls`、`.xlsx`、`.xlsm`、`.csv` |
-| 持久化 | `config/cache.db` 与 `config/*.json` |
-| 归档格式 | `.eaase.json` |
-| 界面语言 | 中文、英文、日文 |
-| 文档入口 | `AGENTS.md`、`PROJECT_FACT_MAP.md`、`AgentLogic/` |
-
-</div>
-
-## ✨ 核心功能
-
-- 在同一个工作区里搜索多个 Excel 工作簿和多个 Sheet。
-- 搜索结果按 `文件 -> Sheet` 分组展示。
-- 支持文件夹导入、文件过滤、标签列过滤和布局切换。
-- 通过 `config/cache.db` 和 `config/*.json` 保持本地运行时状态。
-- 支持 `.eaase.json` 工作区归档导入导出。
-- 当本地 API 不可用时，可回退到 Web Worker 搜索路径。
-
-## 文档与逻辑入口
-
-如果你要维护或扩展这个项目，先看这些文件：
-
-- `AGENTS.md`
-- `PROJECT_FACT_MAP.md`
-- `AgentLogic/00_README.md`
-- `AgentLogic/AgentLogic_V6.md`
-
-仓库检查命令：
-
-```bash
+# 校验逻辑规范与文档地图
 npm run check:logic
 npm run check:docs
-```
 
-当前协作分工：
-
-- Codex 负责实现。
-- Gemini 负责 review 和规划。
-
-## 技术实现
-
-**技术栈**
-
-- React
-- TypeScript
-- Vite
-- 本地 Node.js 运行时服务
-- 通过 `xlsx` 处理 Excel 数据
-
-**架构亮点**
-
-- 本地优先桌面工作流，而不是远程托管服务
-- 优先通过本地 API 缓存执行搜索
-- 浏览器快速模式下回退到 Web Worker
-- 面向大结果集的虚拟化渲染
-- 对原始 Excel 文件保持只读处理
-
-**仓库结构**
-
-| 路径 | 用途 |
-|------|------|
-| `src/` | React 界面、hooks、worker、样式和前端逻辑 |
-| `scripts/` | 本地运行时服务与打包脚本 |
-| `config/` | 本地运行时生成的缓存、归档和日志 |
-| `AgentLogic/` | 仓库逻辑入口与协作规则 |
-| `README.zh-CN.md` / `README.ja.md` | 多语言 README 页面 |
-
-## 开发
-
-```bash
-npm install
-npm run dev
-npm run build
-npm run verify
-```
-
-发布打包命令：
-
-```bash
+# 打包发布可分发的正式文件
 npm run package:github-release
 ```
 
-## 已知限制
+---
 
-- 当前仓库没有为 README 提供截图或 GIF 资源。
-- quickstart 浏览器模式只是回退路径，不代表完整本地运行体验。
-- 本地路径相关操作依赖本地运行时服务可用。
+## ⚠️ 已知限制
 
-## 发布说明
+* 网页版 fallback 模式下无法使用本地路径跳转操作，且没有持久化数据库。
+* 构建分发包时，在 Windows 宿主机上编译 Linux 安装程序需要依赖跨平台包工具的配置。
+* `cache.db` 保留在本机，如需在多台电脑间迁移，需要导出 `.eaase.json` 归档。
 
-`2.1.0` 当前重点包括：
+---
 
-- `.eaase.json` 导入后的缓存清理加固
-- 删除工作簿后的缓存清理
-- SQLite 物理压缩回收
-- 面向便携版和安装版的正式发布打包
+## 📈 版本演进与记录
 
-正式发布资产可从 Releases 页面获取：
+| 版本号 | 状态 | 核心优化点 |
+| :--- | :--- | :--- |
+| **v2.1.0** | 当前稳定版 | 加入 SQLite 物理数据库的删除压缩收缩机制，加固文件夹删除后缓存同步清理，稳定发布包编译。 |
+| **v2.0.0** | 历史版本 | 扩容至 1000 级大工作区，引入本地持久化 SQLite db 存储，添加 `.eaase.json` 归档。 |
+| **v1.1.0** | 历史版本 | 首次转向本地 Node.js 运行时服务 + 壳层架构。 |
+| **v1.0.0** | 历史版本 | 初始 Excel 搜索模型，多语言 README 构建。 |
 
-- `https://github.com/UIhoshi/EaaSE-ExcelasaSearchEngine/releases`
+---
 
-## 版本演进
+## 🤝 协作开发与授权
 
-- `v2.1.0`：加固缓存清理，补上 SQLite 物理压缩回收，并稳定正式发布打包输出。
-- `v2.0.0`：扩展到 1000 文件工作区，引入本地持久化，并加入 `.eaase.json` 项目归档。
-- `v1.1.0`：开始转向本地 API + 桌面优先运行链路。
-- `v1.0.0`：建立最初的严格 Excel 搜索基线和第一版多语言 README 结构。
-
-## 贡献 / 支持
-
-- 如果你发现搜索模型、缓存流程或工作区行为问题，欢迎提交 Issue。
-- 如需提交 PR，请先阅读项目文档和逻辑入口文件。
-
-## License
-
-当前仓库尚未声明单独的许可证文件。
+* 发现搜索定位或缓存同步问题，请提交 GitHub Issue。
+* 发起 PR 时，必须保证已通过 `check:logic` 的本地拦截检验。
+* 仓库中当前未声明单独的外部开源许可证。
